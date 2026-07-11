@@ -1,11 +1,11 @@
 // src/screens/main/MapScreen.js - Bản đồ Việt Nam với markers kỷ niệm
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, Alert, Platform,
-  Modal, ScrollView, Image,
+  Modal, ScrollView, Image, Linking, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import MapView, { Marker, Callout, PROVIDER_GOOGLE } from 'react-native-maps';
+import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
@@ -19,55 +19,57 @@ const VIETNAM_REGION = {
   longitudeDelta: 8.0,
 };
 
-// Tọa độ đặc biệt
 const SPECIAL_MARKERS = [
-  { id: 'hoangsa', lat: 16.5, lng: 112.0, name: 'Quần đảo Hoàng Sa', emoji: '🏝️', color: '#E84393' },
-  { id: 'truongsa', lat: 10.0, lng: 114.0, name: 'Quần đảo Trường Sa', emoji: '🏝️', color: '#E84393' },
+  { id: 'hoangsa', lat: 16.5, lng: 112.0, name: 'Quần đảo Hoàng Sa', emoji: '🏝️', color: '#1A6FD4' },
+  { id: 'truongsa', lat: 10.0, lng: 114.0, name: 'Quần đảo Trường Sa', emoji: '🏝️', color: '#0EA5C9' },
 ];
 
-// Component chi tiết memory popup
+// Modal chi tiết memory
 function MemoryDetailModal({ memory, visible, onClose, theme, t }) {
-  if (!memory) return null;
-  const firstPhoto = memory.photos && memory.photos.length > 0 ? memory.photos[0] : null;
-  const dateStr = new Date(memory.createdAt).toLocaleDateString('vi-VN');
+  // Giữ memory ref để tránh flash khi đóng modal
+  const memoryRef = useRef(memory);
+  if (memory) memoryRef.current = memory;
+  const displayMemory = memoryRef.current;
+
+  if (!displayMemory) return null;
+
+  const firstPhoto = displayMemory.photos?.[0] || null;
+  const dateStr = new Date(displayMemory.createdAt).toLocaleDateString('vi-VN');
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={onClose}>
-        <TouchableOpacity
-          activeOpacity={1}
-          style={[styles.modalContent, { backgroundColor: theme.colors.card }]}
-        >
+      <TouchableOpacity style={modalStyles.overlay} activeOpacity={1} onPress={onClose}>
+        <TouchableOpacity activeOpacity={1} style={[modalStyles.content, { backgroundColor: theme.colors.card }]}>
           {firstPhoto ? (
-            <Image source={{ uri: firstPhoto }} style={styles.modalImage} resizeMode="cover" />
+            <Image source={{ uri: firstPhoto }} style={modalStyles.image} resizeMode="cover" />
           ) : (
-            <View style={[styles.modalImagePlaceholder, { backgroundColor: theme.colors.highlight }]}>
+            <View style={[modalStyles.imagePlaceholder, { backgroundColor: theme.colors.highlight }]}>
               <Text style={{ fontSize: 40 }}>📝</Text>
             </View>
           )}
-          <View style={styles.modalBody}>
-            <Text style={[styles.modalTitle, { color: theme.colors.text }]}>{memory.title}</Text>
-            {memory.description ? (
-              <Text style={[styles.modalDesc, { color: theme.colors.textSecondary }]} numberOfLines={3}>
-                {memory.description}
+          <View style={modalStyles.body}>
+            <Text style={[modalStyles.title, { color: theme.colors.text }]}>{displayMemory.title}</Text>
+            {displayMemory.description ? (
+              <Text style={[modalStyles.desc, { color: theme.colors.textSecondary }]} numberOfLines={3}>
+                {displayMemory.description}
               </Text>
             ) : null}
-            <View style={styles.modalMeta}>
-              {memory.location?.address ? (
-                <Text style={[styles.modalMetaText, { color: theme.colors.textTertiary }]}>
-                  📍 {memory.location.address}
+            <View style={modalStyles.meta}>
+              {displayMemory.location?.address ? (
+                <Text style={[modalStyles.metaText, { color: theme.colors.textTertiary }]}>
+                  📍 {displayMemory.location.address}
                 </Text>
               ) : null}
-              <Text style={[styles.modalMetaText, { color: theme.colors.textTertiary }]}>
+              <Text style={[modalStyles.metaText, { color: theme.colors.textTertiary }]}>
                 🗓️ {dateStr}
               </Text>
             </View>
           </View>
           <TouchableOpacity
-            style={[styles.modalCloseBtn, { backgroundColor: theme.colors.primary }]}
+            style={[modalStyles.closeBtn, { backgroundColor: theme.colors.primary }]}
             onPress={onClose}
           >
-            <Text style={styles.modalCloseBtnText}>{t('common.close')}</Text>
+            <Text style={modalStyles.closeBtnText}>{t('common.close')}</Text>
           </TouchableOpacity>
         </TouchableOpacity>
       </TouchableOpacity>
@@ -83,67 +85,87 @@ export default function MapScreen({ navigation }) {
   const mapRef = useRef(null);
   const [selectedMemory, setSelectedMemory] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
-  const [userLocation, setUserLocation] = useState(null);
+  const [isLocating, setIsLocating] = useState(false);
 
-  // Lấy memories có vị trí
-  const memoriesWithLocation = getMemoriesWithLocation(user?.id);
+  // useMemo để tránh tính lại mỗi render
+  const memoriesWithLocation = useMemo(
+    () => getMemoriesWithLocation(user?.id),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [user?.id, getMemoriesWithLocation]
+  );
 
-  // Xin quyền vị trí khi mount
+  // Xin quyền khi mount (không block UI, không show alert)
   useEffect(() => {
-    requestLocationPermission();
+    Location.getForegroundPermissionsAsync().catch(() => {});
   }, []);
 
-  async function requestLocationPermission() {
+  const goToMyLocation = useCallback(async () => {
+    if (isLocating) return;
+    setIsLocating(true);
     try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        // Không show alert - user có thể không cần GPS
-        return;
-      }
-    } catch (error) {
-      console.error('[MapScreen] Lỗi xin quyền vị trí:', error);
-    }
-  }
+      const { status: existingStatus } = await Location.getForegroundPermissionsAsync();
+      let finalStatus = existingStatus;
 
-  // Lấy vị trí hiện tại
-  async function goToMyLocation() {
-    try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert(t('common.error'), t('map.locationPermissionDenied'));
+      if (existingStatus !== 'granted') {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        finalStatus = status;
+      }
+
+      if (finalStatus !== 'granted') {
+        Alert.alert(
+          t('map.locationPermissionDenied'),
+          t('common.openSettingsHint'),
+          [
+            { text: t('common.cancel'), style: 'cancel' },
+            { text: t('common.openSettings'), onPress: () => Linking.openSettings() },
+          ]
+        );
         return;
       }
-      const location = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-        timeout: 10000,
-      });
+
+      let location;
+      try {
+        location = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.High,
+          mayShowUserSettingsDialog: true,
+        });
+      } catch {
+        location = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+      }
+
       const { latitude, longitude } = location.coords;
-      setUserLocation({ latitude, longitude });
       mapRef.current?.animateToRegion({
         latitude,
         longitude,
-        latitudeDelta: 0.05,
-        longitudeDelta: 0.05,
-      }, 1000);
+        latitudeDelta: 0.01,
+        longitudeDelta: 0.01,
+      }, 800);
     } catch (error) {
+      console.error('[MapScreen] Lỗi lấy vị trí:', error);
       Alert.alert(t('common.error'), t('map.locationError'));
+    } finally {
+      setIsLocating(false);
     }
-  }
+  }, [isLocating, t]);
 
-  // Nhấn vào marker memory
-  function handleMarkerPress(memory) {
+  const handleMarkerPress = useCallback((memory) => {
     setSelectedMemory(memory);
     setModalVisible(true);
-  }
+  }, []);
 
-  // Màu marker theo số ảnh
+  const handleCloseModal = useCallback(() => {
+    setModalVisible(false);
+  }, []);
+
   function getMarkerEmoji(memory) {
-    if (memory.photos && memory.photos.length > 0) return '📸';
+    if (memory.photos?.length > 0) return '📸';
     if (memory.video) return '🎥';
     return '📍';
   }
 
-  const styles = makeStyles(theme);
+  const styles = useMemo(() => makeStyles(theme), [theme]);
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -161,24 +183,25 @@ export default function MapScreen({ navigation }) {
       <MapView
         ref={mapRef}
         style={styles.map}
+        // iOS không cần PROVIDER_GOOGLE (tránh crash nếu chưa setup Google Maps SDK cho iOS)
         provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
         initialRegion={VIETNAM_REGION}
-        showsUserLocation={!!userLocation}
+        showsUserLocation
         showsMyLocationButton={false}
         showsCompass
         showsScale
+        loadingEnabled
+        loadingIndicatorColor={theme.colors.primary}
+        loadingBackgroundColor={theme.colors.background}
       >
-        {/* Markers cho memories */}
+        {/* Markers memories */}
         {memoriesWithLocation.map(memory => (
           <Marker
             key={memory.id}
-            coordinate={{
-              latitude: memory.location.lat,
-              longitude: memory.location.lng,
-            }}
+            coordinate={{ latitude: memory.location.lat, longitude: memory.location.lng }}
             onPress={() => handleMarkerPress(memory)}
+            tracksViewChanges={false}
           >
-            {/* Custom marker */}
             <View style={[styles.markerContainer, { backgroundColor: theme.colors.primary }]}>
               <Text style={styles.markerEmoji}>{getMarkerEmoji(memory)}</Text>
             </View>
@@ -192,6 +215,7 @@ export default function MapScreen({ navigation }) {
             key={marker.id}
             coordinate={{ latitude: marker.lat, longitude: marker.lng }}
             title={marker.name}
+            tracksViewChanges={false}
           >
             <View style={[styles.specialMarker, { backgroundColor: marker.color }]}>
               <Text style={styles.specialMarkerEmoji}>{marker.emoji}</Text>
@@ -200,20 +224,24 @@ export default function MapScreen({ navigation }) {
         ))}
       </MapView>
 
-      {/* Nút vị trí của tôi */}
+      {/* Nút vị trí */}
       <TouchableOpacity
-        style={[styles.locationBtn, { backgroundColor: theme.colors.card, ...theme.shadows.md }]}
+        style={[styles.locationBtn, { backgroundColor: theme.colors.card, ...theme.shadows.md, opacity: isLocating ? 0.7 : 1 }]}
         onPress={goToMyLocation}
+        disabled={isLocating}
         activeOpacity={0.8}
       >
-        <Text style={styles.locationBtnEmoji}>📍</Text>
+        {isLocating
+          ? <ActivityIndicator color={theme.colors.primary} size="small" />
+          : <Text style={styles.locationBtnEmoji}>📍</Text>
+        }
         <Text style={[styles.locationBtnText, { color: theme.colors.primary }]}>
           {t('map.myLocation')}
         </Text>
       </TouchableOpacity>
 
-      {/* Thông tin về bản đồ */}
-      {memoriesWithLocation.length === 0 ? (
+      {/* Empty state */}
+      {memoriesWithLocation.length === 0 && (
         <View style={[styles.emptyOverlay, { backgroundColor: theme.colors.card + 'EE' }]}>
           <Text style={{ fontSize: 32 }}>🗺️</Text>
           <Text style={[styles.emptyText, { color: theme.colors.text }]}>
@@ -226,13 +254,12 @@ export default function MapScreen({ navigation }) {
             <Text style={styles.createMemoryBtnText}>+ {t('create.title')}</Text>
           </TouchableOpacity>
         </View>
-      ) : null}
+      )}
 
-      {/* Modal chi tiết */}
       <MemoryDetailModal
         memory={selectedMemory}
         visible={modalVisible}
-        onClose={() => setModalVisible(false)}
+        onClose={handleCloseModal}
         theme={theme}
         t={t}
       />
@@ -240,18 +267,31 @@ export default function MapScreen({ navigation }) {
   );
 }
 
+const modalStyles = StyleSheet.create({
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  content: { borderTopLeftRadius: 24, borderTopRightRadius: 24, overflow: 'hidden' },
+  image: { width: '100%', height: 200 },
+  imagePlaceholder: { width: '100%', height: 120, alignItems: 'center', justifyContent: 'center' },
+  body: { padding: 16 },
+  title: { fontSize: 18, fontWeight: '700', marginBottom: 6 },
+  desc: { fontSize: 14, lineHeight: 20, marginBottom: 8 },
+  meta: { gap: 4 },
+  metaText: { fontSize: 12 },
+  closeBtn: { margin: 16, paddingVertical: 14, borderRadius: 12, alignItems: 'center' },
+  closeBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+});
+
 function makeStyles(theme) {
   return StyleSheet.create({
     container: { flex: 1 },
     header: {
       flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
       paddingHorizontal: 20, paddingVertical: 14,
-      borderBottomWidth: 1, borderBottomColor: theme.colors?.border || '#E0E3EB',
+      borderBottomWidth: 1, borderBottomColor: theme.colors.border,
     },
     headerTitle: { fontSize: 20, fontWeight: '800' },
     headerCount: { fontSize: 14, fontWeight: '600' },
     map: { flex: 1 },
-    // Custom marker
     markerContainer: {
       width: 36, height: 36, borderRadius: 18,
       alignItems: 'center', justifyContent: 'center',
@@ -264,54 +304,26 @@ function makeStyles(theme) {
       borderLeftColor: 'transparent', borderRightColor: 'transparent',
       alignSelf: 'center', marginTop: -1,
     },
-    // Special marker
     specialMarker: {
       width: 28, height: 28, borderRadius: 14,
       alignItems: 'center', justifyContent: 'center',
       borderWidth: 1.5, borderColor: '#fff', opacity: 0.85,
     },
     specialMarkerEmoji: { fontSize: 14 },
-    // Location button
     locationBtn: {
       position: 'absolute', bottom: 100, right: 16,
       flexDirection: 'row', alignItems: 'center', gap: 6,
-      paddingHorizontal: 14, paddingVertical: 10, borderRadius: 24,
+      paddingHorizontal: 14, paddingVertical: 10, borderRadius: 24, minWidth: 44,
     },
     locationBtnEmoji: { fontSize: 16 },
     locationBtnText: { fontSize: 13, fontWeight: '600' },
-    // Empty overlay
     emptyOverlay: {
-      position: 'absolute', bottom: 160, left: '50%',
-      transform: [{ translateX: -120 }],
+      position: 'absolute', bottom: 160, alignSelf: 'center',
       width: 240, padding: 16, borderRadius: 16,
       alignItems: 'center', gap: 8,
     },
     emptyText: { fontSize: 13, textAlign: 'center', fontWeight: '500' },
-    createMemoryBtn: {
-      paddingHorizontal: 16, paddingVertical: 8, borderRadius: 16,
-    },
+    createMemoryBtn: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 16 },
     createMemoryBtnText: { color: '#fff', fontSize: 13, fontWeight: '600' },
-    // Modal
-    modalOverlay: {
-      flex: 1, backgroundColor: 'rgba(0,0,0,0.5)',
-      justifyContent: 'flex-end',
-    },
-    modalContent: {
-      borderTopLeftRadius: 24, borderTopRightRadius: 24, overflow: 'hidden',
-    },
-    modalImage: { width: '100%', height: 200 },
-    modalImagePlaceholder: {
-      width: '100%', height: 120, alignItems: 'center', justifyContent: 'center',
-    },
-    modalBody: { padding: 16 },
-    modalTitle: { fontSize: 18, fontWeight: '700', marginBottom: 6 },
-    modalDesc: { fontSize: 14, lineHeight: 20, marginBottom: 8 },
-    modalMeta: { gap: 4 },
-    modalMetaText: { fontSize: 12 },
-    modalCloseBtn: {
-      margin: 16, paddingVertical: 14, borderRadius: 12,
-      alignItems: 'center',
-    },
-    modalCloseBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
   });
 }

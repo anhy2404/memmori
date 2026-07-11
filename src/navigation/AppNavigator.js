@@ -6,6 +6,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 
 import { useAuth } from '../context/AuthContext';
 import { useApp } from '../context/AppContext';
+import AppLogo from '../components/AppLogo';
 
 // Auth screens
 import LoginScreen from '../screens/auth/LoginScreen';
@@ -76,8 +77,8 @@ function MainTabs() {
         component={HomeScreen}
         options={{
           tabBarLabel: t('nav.home'),
-          tabBarIcon: ({ focused }) => (
-            <Text style={{ fontSize: focused ? 22 : 20, opacity: focused ? 1 : 0.6 }}>🏠</Text>
+          tabBarIcon: ({ focused, color }) => (
+            <Text style={{ fontSize: focused ? 23 : 20, opacity: focused ? 1 : 0.55 }}>🏠</Text>
           ),
         }}
       />
@@ -87,7 +88,7 @@ function MainTabs() {
         options={{
           tabBarLabel: t('nav.map'),
           tabBarIcon: ({ focused }) => (
-            <Text style={{ fontSize: focused ? 22 : 20, opacity: focused ? 1 : 0.6 }}>🗺️</Text>
+            <Text style={{ fontSize: focused ? 23 : 20, opacity: focused ? 1 : 0.55 }}>🗺️</Text>
           ),
         }}
       />
@@ -107,7 +108,7 @@ function MainTabs() {
         options={{
           tabBarLabel: t('nav.discover'),
           tabBarIcon: ({ focused }) => (
-            <Text style={{ fontSize: focused ? 22 : 20, opacity: focused ? 1 : 0.6 }}>🔍</Text>
+            <Text style={{ fontSize: focused ? 23 : 20, opacity: focused ? 1 : 0.55 }}>🔍</Text>
           ),
         }}
       />
@@ -117,7 +118,7 @@ function MainTabs() {
         options={{
           tabBarLabel: t('nav.profile'),
           tabBarIcon: ({ focused }) => (
-            <Text style={{ fontSize: focused ? 22 : 20, opacity: focused ? 1 : 0.6 }}>👤</Text>
+            <Text style={{ fontSize: focused ? 23 : 20, opacity: focused ? 1 : 0.55 }}>👤</Text>
           ),
         }}
       />
@@ -203,8 +204,7 @@ export default function AppNavigator() {
   if (isLoading || appLoading) {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: theme.colors.background }]}>
-        <Text style={{ fontSize: 40 }}>🗺️</Text>
-        <Text style={[styles.loadingText, { color: theme.colors.primary }]}>MemoryMap</Text>
+        <AppLogo size={90} showName />
       </View>
     );
   }
@@ -233,18 +233,18 @@ const styles = StyleSheet.create({
     // Có thể thêm background highlight
   },
   createButton: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 58,
+    height: 58,
+    borderRadius: 29,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 20,
-    shadowColor: '#E84393',
+    marginBottom: 18,
+    shadowColor: '#1A6FD4',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 8,
-    top: -10,
+    shadowOpacity: 0.45,
+    shadowRadius: 10,
+    elevation: 10,
+    top: -12,
   },
   createButtonText: {
     color: '#FFFFFF',

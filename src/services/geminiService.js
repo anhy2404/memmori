@@ -1,12 +1,13 @@
 // src/services/geminiService.js - Google Gemini AI service
-// Lưu ý: Thay GEMINI_API_KEY bằng API key thực của bạn từ https://aistudio.google.com/
+// Thay GEMINI_API_KEY bằng API key thực từ https://aistudio.google.com/
 
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import * as FileSystem from 'expo-file-system';
 
-// ===== CẤU HÌNH =====
-const GEMINI_API_KEY = 'YOUR_GEMINI_API_KEY'; // Thay bằng API key thực
+const GEMINI_API_KEY = 'YOUR_GEMINI_API_KEY';
+const DEFAULT_MODEL = 'gemini-1.5-flash';
 
-// Khởi tạo client (chỉ tạo một lần)
+// Singleton client - khởi tạo một lần
 let genAI = null;
 function getGenAI() {
   if (!genAI) {
@@ -15,96 +16,85 @@ function getGenAI() {
   return genAI;
 }
 
-// Model mặc định
-const DEFAULT_MODEL = 'gemini-1.5-flash';
+const VIETNAM_SYSTEM_PROMPT = `Bạn là MemoryMap AI - trợ lý thông minh của ứng dụng lưu giữ kỷ niệm và khám phá du lịch Việt Nam.
 
-// ===== SYSTEM PROMPT giới hạn chủ đề VN =====
-const VIETNAM_SYSTEM_PROMPT = `Bạn là AI trợ lý của ứng dụng MemoryMap - ứng dụng lưu giữ kỷ niệm tại Việt Nam.
+PHONG CÁCH:
+- Thân thiện, nhiệt tình như người bạn đồng hành trong chuyến đi
+- Câu trả lời cụ thể, thực tế, có giá trị ngay lập tức
+- Dùng "bạn" - trung tính, không phân biệt giới tính
+- Emoji vừa phải để sinh động, không lạm dụng
 
-NHIỆM VỤ của bạn:
-- Tư vấn về địa điểm du lịch, ăn uống, nghỉ dưỡng tại Việt Nam
-- Gợi ý caption/mô tả cho ảnh chụp tại Việt Nam  
-- Chia sẻ thông tin văn hóa, ẩm thực Việt Nam
-- Tư vấn lịch trình du lịch trong nước
-- Trả lời các câu hỏi về kỷ niệm và checkin địa điểm
+CHUYÊN MÔN:
+- Địa điểm check-in, tham quan, nghỉ dưỡng tại Việt Nam
+- Ẩm thực: đặc sản vùng miền, quán ngon, giá cả
+- Lịch trình du lịch: gợi ý thực tế theo ngày/ngân sách
+- Caption và mô tả cho ảnh/kỷ niệm
+- Văn hóa, phong tục, mẹo du lịch địa phương
 
 GIỚI HẠN:
-- CHỈ trả lời về chủ đề Việt Nam (du lịch, ăn uống, địa điểm, văn hóa)
-- Nếu câu hỏi không liên quan đến Việt Nam, lịch sự từ chối và gợi ý câu hỏi phù hợp
-- KHÔNG tư vấn về tài chính, luật pháp, y tế, hoặc chủ đề nhạy cảm
-- Trả lời bằng ngôn ngữ người dùng đang dùng (Việt/Anh/Trung)
-
-Trả lời ngắn gọn, thực tế, hữu ích. Dùng emoji để sinh động hơn.`;
+- Chỉ tư vấn về Việt Nam và kỷ niệm/du lịch
+- Không tư vấn tài chính, pháp lý, y tế
+- Từ chối lịch sự và gợi ý chủ đề phù hợp nếu hỏi ngoài phạm vi
+- Trả lời bằng ngôn ngữ của người dùng (Việt/Anh/Trung)`;
 
 // ===== CHAT VỚI AI =====
-/**
- * Gửi tin nhắn đến AI và nhận phản hồi
- * @param {string} message - Tin nhắn của người dùng
- * @param {string} language - Ngôn ngữ hiện tại (vi/en/zh)
- * @param {Array} history - Lịch sử chat trước đó
- * @returns {Promise<string>} - Phản hồi từ AI
- */
 export async function chatWithAI(message, language = 'vi', history = []) {
   try {
-    if (!message || message.trim() === '') {
-      throw new Error('Tin nhắn không được trống');
-    }
+    if (!message?.trim()) throw new Error('Tin nhắn không được trống');
 
-    // Kiểm tra API key
     if (GEMINI_API_KEY === 'YOUR_GEMINI_API_KEY') {
-      // Trả về response demo khi chưa có API key
       return getDemoResponse(message, language);
     }
 
-    const ai = getGenAI();
-    const model = ai.getGenerativeModel({ model: DEFAULT_MODEL });
-
-    // Chuẩn bị lịch sử chat (chỉ lấy 10 tin nhắn gần nhất để tránh quá dài)
-    const recentHistory = history.slice(-10).map(msg => ({
-      role: msg.role === 'user' ? 'user' : 'model',
-      parts: [{ text: msg.content }],
-    }));
-
-    // Thêm ngôn ngữ vào prompt
     const langInstruction = language === 'en'
       ? 'Please respond in English.'
       : language === 'zh'
       ? '请用中文回答。'
       : 'Vui lòng trả lời bằng Tiếng Việt.';
 
-    // Khởi tạo chat session
+    const ai = getGenAI();
+    // systemInstruction đặt ở getGenerativeModel theo đúng Gemini SDK docs
+    const model = ai.getGenerativeModel({
+      model: DEFAULT_MODEL,
+      systemInstruction: VIETNAM_SYSTEM_PROMPT + '\n\n' + langInstruction,
+    });
+
+    // Chỉ lấy 10 tin nhắn gần nhất, bỏ tin nhắn welcome
+    const recentHistory = history
+      .filter(msg => msg.id !== 'welcome' && msg.id !== 'welcome_new')
+      .slice(-10)
+      .map(msg => ({
+        role: msg.role === 'user' ? 'user' : 'model',
+        parts: [{ text: msg.content || '' }],
+      }));
+
     const chat = model.startChat({
       history: recentHistory,
-      systemInstruction: VIETNAM_SYSTEM_PROMPT + '\n\n' + langInstruction,
       generationConfig: {
         maxOutputTokens: 800,
         temperature: 0.7,
       },
     });
 
-    const result = await chat.sendMessage(message);
-    const response = await result.response;
-    const text = response.text();
+    const result = await chat.sendMessage(message.trim());
+    const text = result.response.text();
 
-    if (!text || text.trim() === '') {
-      throw new Error('AI không trả lời được');
-    }
-
+    if (!text?.trim()) throw new Error('AI không trả lời được');
     return text.trim();
+
   } catch (error) {
     console.error('[geminiService] Lỗi chatWithAI:', error);
 
-    // Xử lý các lỗi phổ biến
     if (error.message?.includes('API_KEY') || error.message?.includes('apiKey')) {
       return getDemoResponse(message, language);
     }
-    if (error.message?.includes('quota') || error.message?.includes('rate')) {
-      const errMsgs = {
+    if (error.message?.includes('quota') || error.message?.includes('rate limit')) {
+      const msgs = {
         vi: '⚠️ AI đang bận, vui lòng thử lại sau ít phút.',
         en: '⚠️ AI is busy, please try again in a moment.',
         zh: '⚠️ AI正忙，请稍后重试。',
       };
-      return errMsgs[language] || errMsgs.vi;
+      return msgs[language] || msgs.vi;
     }
 
     throw new Error('Dịch vụ AI gặp sự cố: ' + (error.message || 'Lỗi không xác định'));
@@ -112,11 +102,6 @@ export async function chatWithAI(message, language = 'vi', history = []) {
 }
 
 // ===== TẠO CAPTION =====
-/**
- * Gợi ý caption cho ảnh/kỷ niệm
- * @param {Object} params - { imageUri, description, location }
- * @returns {Promise<string>} - Caption được đề xuất
- */
 export async function generateCaption({ imageUri = null, description = '', location = '' }) {
   try {
     if (GEMINI_API_KEY === 'YOUR_GEMINI_API_KEY') {
@@ -131,9 +116,27 @@ export async function generateCaption({ imageUri = null, description = '', locat
     if (description) prompt += `Mô tả: ${description}. `;
     prompt += 'Caption ngắn gọn (2-3 câu), có cảm xúc, dùng emoji phù hợp. Chỉ trả về caption, không giải thích thêm.';
 
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    return response.text().trim();
+    const contentParts = [];
+
+    // Thêm ảnh nếu có - dùng expo-file-system thay FileReader (RN không có FileReader)
+    if (imageUri) {
+      try {
+        const base64 = await FileSystem.readAsStringAsync(imageUri, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+        contentParts.push({
+          inlineData: { data: base64, mimeType: 'image/jpeg' },
+        });
+      } catch (imgErr) {
+        console.warn('[geminiService] Không thể đọc ảnh, bỏ qua:', imgErr.message);
+      }
+    }
+
+    contentParts.push(prompt);
+
+    const result = await model.generateContent(contentParts);
+    return result.response.text().trim();
+
   } catch (error) {
     console.error('[geminiService] Lỗi generateCaption:', error);
     return getDemoCaption(location || description);
@@ -141,11 +144,6 @@ export async function generateCaption({ imageUri = null, description = '', locat
 }
 
 // ===== PHÂN TÍCH ẢNH =====
-/**
- * Phân tích ảnh địa điểm và trả về thông tin
- * @param {string} imageUri - URI của ảnh
- * @returns {Promise<string>} - Mô tả về địa điểm trong ảnh
- */
 export async function analyzeImage(imageUri) {
   try {
     if (!imageUri) throw new Error('Không có ảnh để phân tích');
@@ -153,24 +151,21 @@ export async function analyzeImage(imageUri) {
       return 'Hình ảnh đẹp! Đây có vẻ là một địa điểm thú vị tại Việt Nam. 📸';
     }
 
-    const ai = getGenAI();
-    const model = ai.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    // Đọc ảnh bằng expo-file-system (không dùng FileReader - không có trong RN)
+    const base64 = await FileSystem.readAsStringAsync(imageUri, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
 
-    // Đọc ảnh và chuyển thành base64
-    const imageData = await fetchImageAsBase64(imageUri);
+    const ai = getGenAI();
+    const model = ai.getGenerativeModel({ model: DEFAULT_MODEL });
 
     const result = await model.generateContent([
-      {
-        inlineData: {
-          data: imageData,
-          mimeType: 'image/jpeg',
-        },
-      },
+      { inlineData: { data: base64, mimeType: 'image/jpeg' } },
       'Đây là ảnh địa điểm tại Việt Nam. Hãy mô tả ngắn gọn (1-2 câu) về địa điểm này bằng tiếng Việt. Nếu nhận ra tên địa điểm cụ thể, hãy đề cập. Chỉ trả về mô tả, không giải thích thêm.',
     ]);
 
-    const response = await result.response;
-    return response.text().trim();
+    return result.response.text().trim();
+
   } catch (error) {
     console.error('[geminiService] Lỗi analyzeImage:', error);
     return 'Không thể phân tích ảnh lúc này.';
@@ -178,16 +173,10 @@ export async function analyzeImage(imageUri) {
 }
 
 // ===== TÓM TẮT KỶ NIỆM =====
-/**
- * Tóm tắt các kỷ niệm của người dùng
- * @param {Array} memories - Danh sách memories
- * @returns {Promise<string>} - Tóm tắt
- */
 export async function summarizeMemories(memories) {
   try {
-    if (!memories || memories.length === 0) {
-      return 'Chưa có kỷ niệm nào để tóm tắt.';
-    }
+    if (!memories?.length) return 'Chưa có kỷ niệm nào để tóm tắt.';
+
     if (GEMINI_API_KEY === 'YOUR_GEMINI_API_KEY') {
       return getDemoSummary(memories);
     }
@@ -195,40 +184,24 @@ export async function summarizeMemories(memories) {
     const ai = getGenAI();
     const model = ai.getGenerativeModel({ model: DEFAULT_MODEL });
 
-    const memorySummary = memories.slice(0, 10).map(m => (
+    const memorySummary = memories.slice(0, 10).map(m =>
       `- ${m.title} tại ${m.location?.address || 'không rõ địa điểm'} (${new Date(m.createdAt).toLocaleDateString('vi-VN')})`
-    )).join('\n');
+    ).join('\n');
 
-    const prompt = `Đây là ${memories.length} kỷ niệm gần đây của một người dùng:\n${memorySummary}\n\nHãy tạo một đoạn tóm tắt ngắn gọn, cảm xúc (3-4 câu) bằng tiếng Việt về hành trình kỷ niệm của họ.`;
+    const prompt = `Đây là ${memories.length} kỷ niệm gần đây:\n${memorySummary}\n\nHãy tạo đoạn tóm tắt ngắn gọn, cảm xúc (3-4 câu) bằng tiếng Việt về hành trình kỷ niệm này.`;
 
     const result = await model.generateContent(prompt);
-    const response = await result.response;
-    return response.text().trim();
+    return result.response.text().trim();
+
   } catch (error) {
     console.error('[geminiService] Lỗi summarizeMemories:', error);
     return getDemoSummary(memories);
   }
 }
 
-// ===== HELPER: ĐỌC ẢNH BASE64 =====
-async function fetchImageAsBase64(uri) {
-  try {
-    const response = await fetch(uri);
-    const blob = await response.blob();
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result.split(',')[1]);
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    });
-  } catch (error) {
-    throw new Error('Không thể đọc ảnh: ' + error.message);
-  }
-}
-
-// ===== DEMO RESPONSES (khi không có API key) =====
+// ===== DEMO RESPONSES =====
 function getDemoResponse(message, language) {
-  const lowerMsg = message.toLowerCase();
+  const lowerMsg = (message || '').toLowerCase();
 
   const responses = {
     vi: [
@@ -239,22 +212,21 @@ function getDemoResponse(message, language) {
       '⛺ Vịnh Hạ Long - Di sản thiên nhiên thế giới, với hàng nghìn đảo đá vôi kỳ vĩ. Một trong những cảnh đẹp nhất Việt Nam!',
     ],
     en: [
-      '🗺️ Vietnam has countless beautiful destinations! From the majestic Ha Long Bay in the North, to the romantic ancient town of Hoi An in the Central, to the stunning Phu Quoc island in the South.',
+      '🗺️ Vietnam has countless beautiful destinations! Ha Long Bay in the North, romantic Hoi An in the Center, stunning Phu Quoc in the South.',
       '🍜 Vietnamese cuisine is incredibly diverse! Hanoi Pho, Hue Beef Noodle, Saigon Banh Mi - each region has its unique culinary identity.',
       '🏖️ Vietnamese beaches are stunning! My Khe Beach (Da Nang), Nha Trang, and Phu Quoc are among the most beautiful in Asia.',
     ],
     zh: [
-      '🗺️ 越南有许多美丽的地方！从北部壮观的下龙湾，到中部浪漫的古镇会安，再到南部美丽的富国岛。',
-      '🍜 越南美食非常丰富！河内河粉、顺化牛肉粉、西贡法棍——每个地区都有其独特的饮食文化。',
+      '🗺️ 越南有许多美丽的地方！北部壮观的下龙湾，中部浪漫的古镇会安，南部美丽的富国岛。',
+      '🍜 越南美食非常丰富！河内河粉、顺化牛肉粉、西贡法棍——每个地区都有独特的饮食文化。',
     ],
   };
 
   const langResponses = responses[language] || responses.vi;
 
-  // Thử khớp chủ đề
   if (lowerMsg.includes('hà nội') || lowerMsg.includes('hanoi')) {
     return language === 'vi'
-      ? '🏙️ Hà Nội - Thủ đô nghìn năm văn hiến! Bạn nên thăm Hồ Hoàn Kiếm, Văn Miếu Quốc Tử Giám, phố cổ 36 phố phường, và thưởng thức phở, bún chả, cà phê trứng đặc trưng.'
+      ? '🏙️ Hà Nội - Thủ đô nghìn năm văn hiến! Nên thăm Hồ Hoàn Kiếm, Văn Miếu Quốc Tử Giám, phố cổ 36 phố phường, và thưởng thức phở, bún chả, cà phê trứng đặc trưng.'
       : langResponses[0];
   }
   if (lowerMsg.includes('hội an') || lowerMsg.includes('hoi an')) {
@@ -264,18 +236,32 @@ function getDemoResponse(message, language) {
   }
   if (lowerMsg.includes('đà lạt') || lowerMsg.includes('da lat')) {
     return language === 'vi'
-      ? '🌸 Đà Lạt - Thành phố ngàn hoa mát mẻ quanh năm! Khí hậu như châu Âu, trái dâu tây tươi ngon, và những vườn hoa rực rỡ. Rất thích hợp để nghỉ dưỡng!'
+      ? '🌸 Đà Lạt - Thành phố ngàn hoa mát mẻ quanh năm! Khí hậu như châu Âu, trái dâu tây tươi ngon, vườn hoa rực rỡ. Rất thích hợp để nghỉ dưỡng!'
       : langResponses[Math.floor(Math.random() * langResponses.length)];
   }
+  if (lowerMsg.includes('hạ long') || lowerMsg.includes('ha long')) {
+    return language === 'vi'
+      ? '⛺ Vịnh Hạ Long - Di sản thiên nhiên thế giới UNESCO! Hàng nghìn đảo đá vôi hùng vĩ, hang động kỳ ảo. Nên đặt tour thuyền 2 ngày 1 đêm để trải nghiệm đầy đủ.'
+      : langResponses[0];
+  }
+  if (lowerMsg.includes('phú quốc') || lowerMsg.includes('phu quoc')) {
+    return language === 'vi'
+      ? '🏝️ Phú Quốc - Đảo ngọc của Việt Nam! Biển xanh trong vắt, cát trắng mịn. Đừng bỏ lỡ hoàng hôn ở Bãi Sao và hải sản tươi tại chợ đêm Dinh Cậu.'
+      : langResponses[0];
+  }
 
-  // Trả về random response
-  return langResponses[Math.floor(Math.random() * langResponses.length)] +
-    '\n\n💡 _Lưu ý: Đây là phản hồi demo. Để sử dụng AI thực, vui lòng cài đặt Gemini API Key trong src/services/geminiService.js_';
+  const note = language === 'vi'
+    ? '\n\n💡 _Demo mode - Cài đặt Gemini API Key để dùng AI thực._'
+    : '';
+  return langResponses[Math.floor(Math.random() * langResponses.length)] + note;
 }
 
 function getDemoCaption(context) {
+  const tag = context
+    ? '#' + context.split(',')[0].trim().replace(/\s+/g, '').substring(0, 20)
+    : '#memories';
   const captions = [
-    `✨ Những khoảnh khắc đẹp nhất không phải là những khoảnh khắc hoàn hảo nhất, mà là những khoảnh khắc chạm đến trái tim ta. 💕 ${context ? '#' + context.split(',')[0].trim().replace(/\s+/g, '') : '#memories'} #MemoryMap`,
+    `✨ Những khoảnh khắc đẹp nhất không phải là những khoảnh khắc hoàn hảo nhất, mà là những khoảnh khắc chạm đến trái tim ta. 💕 ${tag} #MemoryMap`,
     `🌸 Mỗi nơi ta đến đều để lại dấu ấn trong ký ức. Đây là một trong những khoảnh khắc tôi sẽ mãi nhớ... 🗺️ #Vietnam #DuLich`,
     `📸 Cuộc sống là tập hợp của những kỷ niệm đẹp. Trân trọng từng khoảnh khắc! 💫 #MemoryMap #KyNiem`,
   ];
@@ -283,7 +269,11 @@ function getDemoCaption(context) {
 }
 
 function getDemoSummary(memories) {
-  const count = memories.length;
-  const locations = [...new Set(memories.filter(m => m.location?.address).map(m => m.location.address.split(',')[0]))];
-  return `🗺️ Bạn đã lưu giữ ${count} kỷ niệm tuyệt đẹp trong hành trình của mình. ${locations.length > 0 ? `Những địa điểm bạn đã khám phá: ${locations.slice(0, 3).join(', ')}.` : ''} Mỗi kỷ niệm là một mảnh ghép quý giá trong cuốn album cuộc đời của bạn. Tiếp tục ghi lại những khoảnh khắc đáng nhớ nhé! ✨`;
+  const count = memories?.length || 0;
+  const locations = [...new Set(
+    (memories || [])
+      .filter(m => m.location?.address)
+      .map(m => m.location.address.split(',')[0].trim())
+  )].slice(0, 3);
+  return `🗺️ Bạn đã lưu giữ ${count} kỷ niệm tuyệt đẹp trong hành trình của mình.${locations.length ? ` Những địa điểm bạn đã khám phá: ${locations.join(', ')}.` : ''} Mỗi kỷ niệm là một mảnh ghép quý giá trong cuốn album cuộc đời của bạn. Tiếp tục ghi lại những khoảnh khắc đáng nhớ nhé! ✨`;
 }

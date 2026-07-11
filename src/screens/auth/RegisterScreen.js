@@ -7,16 +7,25 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
 import { useApp } from '../../context/AppContext';
+import AppLogo from '../../components/AppLogo';
 
 export default function RegisterScreen({ navigation }) {
   const { register } = useAuth();
   const { theme, t } = useApp();
 
-  const [form, setForm] = useState({ fullName: '', email: '', password: '', confirmPassword: '', phonenumber: '' });
+  const [form, setForm] = useState({ fullName: '', email: '', password: '', confirmPassword: '', phonenumber: '', gender: '' });
   const [showPwd, setShowPwd] = useState(false);
   const [showConfirmPwd, setShowConfirmPwd] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState({});
+
+  // Pilihan jenis kelamin - trung tính
+  const GENDER_OPTIONS = [
+    { value: 'male', label: t('auth.genderMale') },
+    { value: 'female', label: t('auth.genderFemale') },
+    { value: 'other', label: t('auth.genderOther') },
+    { value: '', label: t('auth.genderPreferNotSay') },
+  ];
 
   function setField(key, val) {
     setForm(f => ({ ...f, [key]: val }));
@@ -57,7 +66,7 @@ export default function RegisterScreen({ navigation }) {
         <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           {/* Header */}
           <View style={styles.header}>
-            <Text style={styles.logo}>🗺️</Text>
+            <AppLogo size={72} showName={false} />
             <Text style={styles.appName}>MemoryMap</Text>
             <Text style={styles.title}>{t('auth.createAccount')}</Text>
             <Text style={styles.subtitle}>{t('auth.createSubtitle')}</Text>
@@ -116,6 +125,34 @@ export default function RegisterScreen({ navigation }) {
                   keyboardType="phone-pad"
                   returnKeyType="next"
                 />
+              </View>
+            </View>
+
+            {/* Giới tính - tùy chọn */}
+            <View style={styles.fieldGroup}>
+              <Text style={styles.label}>
+                {t('auth.gender')}
+              </Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                {GENDER_OPTIONS.map(opt => (
+                  <TouchableOpacity
+                    key={opt.value}
+                    style={[
+                      styles.genderBtn,
+                      { borderColor: theme.colors.inputBorder, backgroundColor: theme.colors.inputBackground },
+                      form.gender === opt.value && { borderColor: theme.colors.primary, backgroundColor: theme.colors.highlight },
+                    ]}
+                    onPress={() => setField('gender', opt.value)}
+                  >
+                    <Text style={[
+                      styles.genderBtnText,
+                      { color: theme.colors.textSecondary },
+                      form.gender === opt.value && { color: theme.colors.primary, fontWeight: '700' },
+                    ]}>
+                      {opt.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
               </View>
             </View>
 
@@ -199,9 +236,8 @@ function makeStyles(theme) {
     container: { flex: 1, backgroundColor: theme.colors.background },
     flex: { flex: 1 },
     scrollContent: { flexGrow: 1, paddingHorizontal: 24, paddingBottom: 40 },
-    header: { alignItems: 'center', paddingTop: 32, paddingBottom: 24 },
-    logo: { fontSize: 52, marginBottom: 6 },
-    appName: { fontSize: 24, fontWeight: '800', color: theme.colors.primary, marginBottom: 12 },
+    header: { alignItems: 'center', paddingTop: 28, paddingBottom: 20 },
+    appName: { fontSize: 22, fontWeight: '800', color: theme.colors.primary, marginTop: 8, marginBottom: 10, letterSpacing: 0.5 },
     title: { fontSize: 20, fontWeight: '700', color: theme.colors.text, marginBottom: 6 },
     subtitle: { fontSize: 13, color: theme.colors.textSecondary, textAlign: 'center', lineHeight: 19 },
     form: { gap: 2 },
@@ -220,15 +256,18 @@ function makeStyles(theme) {
     eyeBtn: { padding: 4 },
     errorText: { fontSize: 12, color: theme.colors.error, marginTop: 4, marginLeft: 2 },
     registerBtn: {
-      height: 52, borderRadius: 12, alignItems: 'center',
+      height: 52, borderRadius: 14, alignItems: 'center',
       justifyContent: 'center', marginTop: 8,
-      shadowColor: '#E84393', shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.3, shadowRadius: 8, elevation: 4,
+      shadowColor: '#1A6FD4', shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.35, shadowRadius: 10, elevation: 5,
     },
     btnDisabled: { opacity: 0.7 },
     registerBtnText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
     loginRow: { flexDirection: 'row', justifyContent: 'center', marginTop: 18 },
     loginText: { fontSize: 14 },
     loginLink: { fontSize: 14, fontWeight: '700' },
+    // Giới tính
+    genderBtn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1.5 },
+    genderBtnText: { fontSize: 13 },
   });
 }

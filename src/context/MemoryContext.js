@@ -1,23 +1,22 @@
 // src/context/MemoryContext.js - Quản lý memories/checkins
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const STORAGE_KEY = '@memorymap_memories';
 
-// Tạo Context
 const MemoryContext = createContext(null);
 
-// Provider
 export function MemoryProvider({ children }) {
   const [memories, setMemories] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  // Ref để tránh race condition khi refresh đồng thời
+  const isSavingRef = useRef(false);
+  const pendingSaveRef = useRef(null);
 
-  // Tải memories khi khởi động
   useEffect(() => {
     loadMemories();
   }, []);
 
-  // Tải tất cả memories từ AsyncStorage
   async function loadMemories() {
     try {
       const saved = await AsyncStorage.getItem(STORAGE_KEY);
@@ -32,74 +31,97 @@ export function MemoryProvider({ children }) {
     }
   }
 
-  // Lưu danh sách memories vào AsyncStorage
+  // Lưu với debounce để tránh ghi đè khi nhiều thao tác nhanh
   async function saveMemories(list) {
+    if (isSavingRef.current) {
+      // Nếu đang lưu, ghi nhớ list mới nhất để lưu sau
+      pendingSaveRef.current = list;
+      return;
+    }
+    isSavingRef.current = true;
     try {
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+      // Nếu có pending save, thực hiện ngay
+      if (pendingSaveRef.current) {
+        const pending = pendingSaveRef.current;
+        pendingSaveRef.current = null;
+        await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(pending));
+      }
     } catch (error) {
       console.error('[MemoryContext] Lỗi lưu memories:', error);
       throw new Error('Lưu dữ liệu thất bại');
+    } finally {
+      isSavingRef.current = false;
     }
   }
 
   // ===== THÊM MEMORY =====
   const addMemory = useCallback(async (memoryData) => {
-    try {
-      const newMemory = {
-        id: `memory_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        title: memoryData.title || '',
-        description: memoryData.description || '',
-        photos: memoryData.photos || [],         // mảng URI ảnh
-        video: memoryData.video || null,          // URI video
-        location: memoryData.location || null,    // { lat, lng, address, name }
-        tags: memoryData.tags || [],              // mảng string
-        userId: memoryData.userId,
-        aiCaption: memoryData.aiCaption || '',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
+    const newMemory = {
+      id: `memory_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      title: memoryData.title || '',
+      description: memoryData.description || '',
+      photos: Array.isArray(memoryData.photos) ? memoryData.photos : [],
+      video: memoryData.video || null,
+      location: memoryData.location || null,
+      tags: Array.isArray(memoryData.tags) ? memoryData.tags : [],
+      userId: memoryData.userId || null,
+      aiCaption: memoryData.aiCaption || '',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
 
-      const updatedList = [newMemory, ...memories];
-      setMemories(updatedList);
-      await saveMemories(updatedList);
-      
-      return { success: true, memory: newMemory };
-    } catch (error) {
-      console.error('[MemoryContext] Lỗi thêm memory:', error);
-      throw new Error('Lưu kỷ niệm thất bại');
-    }
-  }, [memories]);
+    return new Promise((resolve, reject) => {
+      setMemories(prev => {
+        const updatedList = [newMemory, ...prev];
+        saveMemories(updatedList)
+          .then(() => resolve({ success: true, memory: newMemory }))
+          .catch(err => {
+            console.error('[MemoryContext] Lỗi lưu sau addMemory:', err);
+            reject(new Error('Lưu kỷ niệm thất bại - kiểm tra bộ nhớ thiết bị'));
+          });
+        return updatedList;
+      });
+    });
+  }, []);
 
   // ===== XÓA MEMORY =====
   const deleteMemory = useCallback(async (memoryId) => {
-    try {
-      const updatedList = memories.filter(m => m.id !== memoryId);
-      setMemories(updatedList);
-      await saveMemories(updatedList);
-      return { success: true };
-    } catch (error) {
-      console.error('[MemoryContext] Lỗi xóa memory:', error);
-      throw new Error('Xóa kỷ niệm thất bại');
-    }
-  }, [memories]);
+    return new Promise((resolve, reject) => {
+      setMemories(prev => {
+        const updatedList = prev.filter(m => m.id !== memoryId);
+        saveMemories(updatedList)
+          .then(() => resolve({ success: true }))
+          .catch(err => {
+            console.error('[MemoryContext] Lỗi lưu sau deleteMemory:', err);
+            reject(new Error('Xóa kỷ niệm thất bại'));
+          });
+        return updatedList;
+      });
+    });
+  }, []);
 
   // ===== CẬP NHẬT MEMORY =====
   const updateMemory = useCallback(async (memoryId, updates) => {
-    try {
-      const updatedList = memories.map(m => {
-        if (m.id === memoryId) {
-          return { ...m, ...updates, updatedAt: new Date().toISOString() };
-        }
-        return m;
+    // Loại bỏ các field không được phép update trực tiếp
+    const { id: _id, userId: _uid, createdAt: _ca, ...safeUpdates } = updates;
+    return new Promise((resolve, reject) => {
+      setMemories(prev => {
+        const updatedList = prev.map(m =>
+          m.id === memoryId
+            ? { ...m, ...safeUpdates, updatedAt: new Date().toISOString() }
+            : m
+        );
+        saveMemories(updatedList)
+          .then(() => resolve({ success: true }))
+          .catch(err => {
+            console.error('[MemoryContext] Lỗi lưu sau updateMemory:', err);
+            reject(new Error('Cập nhật kỷ niệm thất bại'));
+          });
+        return updatedList;
       });
-      setMemories(updatedList);
-      await saveMemories(updatedList);
-      return { success: true };
-    } catch (error) {
-      console.error('[MemoryContext] Lỗi cập nhật memory:', error);
-      throw new Error('Cập nhật kỷ niệm thất bại');
-    }
-  }, [memories]);
+    });
+  }, []);
 
   // ===== LẤY MEMORIES THEO USER =====
   const getMyMemories = useCallback((userId) => {
@@ -109,55 +131,63 @@ export function MemoryProvider({ children }) {
 
   // ===== LẤY MEMORIES CÓ VỊ TRÍ =====
   const getMemoriesWithLocation = useCallback((userId) => {
-    return memories.filter(m => m.userId === userId && m.location && m.location.lat && m.location.lng);
+    if (!userId) return [];
+    return memories.filter(
+      m => m.userId === userId &&
+      m.location?.lat != null &&
+      m.location?.lng != null
+    );
   }, [memories]);
 
   // ===== LẤY MEMORIES THEO BỘ LỌC =====
   const getFilteredMemories = useCallback((userId, filter = 'all') => {
-    const userMemories = getMyMemories(userId);
-    const now = new Date();
-    
+    if (!userId) return [];
+    const userMemories = memories.filter(m => m.userId === userId);
+    if (filter === 'all') return userMemories;
+
+    const now = Date.now();
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
     switch (filter) {
-      case 'today': {
-        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      case 'today':
         return userMemories.filter(m => new Date(m.createdAt) >= todayStart);
-      }
       case 'week': {
-        const weekStart = new Date(now);
-        weekStart.setDate(now.getDate() - 7);
-        return userMemories.filter(m => new Date(m.createdAt) >= weekStart);
+        const weekAgo = now - 7 * 24 * 60 * 60 * 1000;
+        return userMemories.filter(m => new Date(m.createdAt).getTime() >= weekAgo);
       }
       case 'month': {
-        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        const monthStart = new Date();
+        monthStart.setDate(1);
+        monthStart.setHours(0, 0, 0, 0);
         return userMemories.filter(m => new Date(m.createdAt) >= monthStart);
       }
       default:
         return userMemories;
     }
-  }, [getMyMemories]);
+  }, [memories]);
 
   // ===== THỐNG KÊ =====
   const getStats = useCallback((userId) => {
-    const userMemories = getMyMemories(userId);
-    const now = new Date();
-    const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    
-    const memoriesThisMonth = userMemories.filter(m => new Date(m.createdAt) >= thisMonthStart);
+    if (!userId) return { total: 0, locations: 0, thisMonth: 0 };
+    const userMemories = memories.filter(m => m.userId === userId);
+    const monthStart = new Date();
+    monthStart.setDate(1);
+    monthStart.setHours(0, 0, 0, 0);
+
+    const thisMonth = userMemories.filter(m => new Date(m.createdAt) >= monthStart).length;
     const uniqueLocations = new Set(
       userMemories
-        .filter(m => m.location && m.location.name)
+        .filter(m => m.location?.name)
         .map(m => m.location.name)
     ).size;
 
-    return {
-      total: userMemories.length,
-      locations: uniqueLocations,
-      thisMonth: memoriesThisMonth.length,
-    };
-  }, [getMyMemories]);
+    return { total: userMemories.length, locations: uniqueLocations, thisMonth };
+  }, [memories]);
 
   // ===== LẤY 1 MEMORY THEO ID =====
   const getMemoryById = useCallback((memoryId) => {
+    if (!memoryId) return null;
     return memories.find(m => m.id === memoryId) || null;
   }, [memories]);
 
@@ -182,7 +212,6 @@ export function MemoryProvider({ children }) {
   );
 }
 
-// Custom hook
 export function useMemory() {
   const context = useContext(MemoryContext);
   if (!context) {

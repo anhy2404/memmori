@@ -126,14 +126,17 @@ export function AppProvider({ children }) {
   // Cập nhật setting tùy chỉnh
   const updateSetting = useCallback(async (key, value) => {
     try {
-      const newSettings = { ...settings, [key]: value };
-      setSettings(newSettings);
-      await AsyncStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(newSettings));
+      setSettings(prev => {
+        const newSettings = { ...prev, [key]: value };
+        AsyncStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(newSettings))
+          .catch(err => console.error('[AppContext] Lỗi lưu setting:', err));
+        return newSettings;
+      });
     } catch (error) {
       console.error('[AppContext] Lỗi cập nhật setting:', error);
       throw error;
     }
-  }, [settings]);
+  }, []);
 
   const contextValue = {
     language,

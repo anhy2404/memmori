@@ -1,9 +1,9 @@
 // src/screens/main/ProfileScreen.js - Trang cá nhân với thống kê và grid memories
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView,
-  Image, FlatList, Dimensions, Alert, Modal, TextInput,
-  ActivityIndicator,
+  Image, Dimensions, Alert, Modal, TextInput,
+  ActivityIndicator, Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
@@ -59,7 +59,25 @@ function EditProfileModal({ user, visible, onClose, onSave, theme, t }) {
   const [fullName, setFullName] = useState(user?.fullName || '');
   const [bio, setBio] = useState(user?.bio || '');
   const [phonenumber, setPhonenumber] = useState(user?.phonenumber || '');
+  const [gender, setGender] = useState(user?.gender || '');
   const [isSaving, setIsSaving] = useState(false);
+
+  const GENDER_OPTIONS = [
+    { value: 'male', label: t('auth.genderMale') },
+    { value: 'female', label: t('auth.genderFemale') },
+    { value: 'other', label: t('auth.genderOther') },
+    { value: '', label: t('auth.genderPreferNotSay') },
+  ];
+
+  // Đồng bộ giá trị khi modal mở
+  React.useEffect(() => {
+    if (visible) {
+      setFullName(user?.fullName || '');
+      setBio(user?.bio || '');
+      setPhonenumber(user?.phonenumber || '');
+      setGender(user?.gender || '');
+    }
+  }, [visible, user]);
 
   async function handleSave() {
     if (!fullName.trim()) {
@@ -68,7 +86,7 @@ function EditProfileModal({ user, visible, onClose, onSave, theme, t }) {
     }
     setIsSaving(true);
     try {
-      await onSave({ fullName: fullName.trim(), bio: bio.trim(), phonenumber: phonenumber.trim() });
+      await onSave({ fullName: fullName.trim(), bio: bio.trim(), phonenumber: phonenumber.trim(), gender });
       onClose();
     } catch (error) {
       Alert.alert(t('common.error'), t('profile.updateFailed'));
@@ -100,6 +118,9 @@ function EditProfileModal({ user, visible, onClose, onSave, theme, t }) {
               onChangeText={setFullName}
               placeholder={t('auth.fullName')}
               placeholderTextColor={theme.colors.placeholder}
+              autoCapitalize="words"
+              autoCorrect={false}
+              returnKeyType="next"
             />
           </View>
           <View>
@@ -111,6 +132,7 @@ function EditProfileModal({ user, visible, onClose, onSave, theme, t }) {
               placeholder={t('auth.phonenumber')}
               placeholderTextColor={theme.colors.placeholder}
               keyboardType="phone-pad"
+              returnKeyType="next"
             />
           </View>
           <View>
@@ -123,7 +145,34 @@ function EditProfileModal({ user, visible, onClose, onSave, theme, t }) {
               placeholderTextColor={theme.colors.placeholder}
               multiline
               maxLength={200}
+              autoCapitalize="sentences"
+              autoCorrect={false}
             />
+          </View>
+          {/* Giới tính - tùy chọn, không bắt buộc */}
+          <View>
+            <Text style={[editStyles.label, { color: theme.colors.text }]}>{t('profile.genderLabel')}</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+              {GENDER_OPTIONS.map(opt => (
+                <TouchableOpacity
+                  key={opt.value}
+                  style={[
+                    editStyles.genderBtn,
+                    { borderColor: theme.colors.inputBorder, backgroundColor: theme.colors.inputBackground },
+                    gender === opt.value && { borderColor: theme.colors.primary, backgroundColor: theme.colors.highlight },
+                  ]}
+                  onPress={() => setGender(opt.value)}
+                >
+                  <Text style={[
+                    editStyles.genderBtnText,
+                    { color: theme.colors.textSecondary },
+                    gender === opt.value && { color: theme.colors.primary, fontWeight: '700' },
+                  ]}>
+                    {opt.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
         </ScrollView>
       </SafeAreaView>
@@ -139,8 +188,8 @@ export default function ProfileScreen({ navigation }) {
   const [showEdit, setShowEdit] = useState(false);
   const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'list'
 
-  const myMemories = getMyMemories(user?.id);
-  const stats = getStats(user?.id);
+  const myMemories = useMemo(() => getMyMemories(user?.id), [user?.id, getMyMemories]);
+  const stats = useMemo(() => getStats(user?.id), [user?.id, getStats]);
 
   const joinedDate = user?.createdAt
     ? new Date(user.createdAt).toLocaleDateString('vi-VN', { month: 'long', year: 'numeric' })
@@ -164,15 +213,31 @@ export default function ProfileScreen({ navigation }) {
   async function handleChangeAvatar() {
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') { Alert.alert(t('common.error'), t('create.errorMediaPermission')); return; }
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true, aspect: [1, 1], quality: 0.7,
-      });
-      if (!result.canceled && result.assets[0]) {
-        await updateProfile({ avatar: result.assets[0].uri });
+      if (status !== 'granted') {
+        Alert.alert(
+          t('create.errorMediaPermission'),
+          t('common.openSettingsHint'),
+          [
+            { text: t('common.cancel'), style: 'cancel' },
+            { text: t('common.openSettings'), onPress: () => Linking.openSettings() },
+          ]
+        );
+        return;
       }
-    } catch { Alert.alert(t('common.error'), t('errors.unknownError')); }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.7,
+      });
+      if (!result.canceled && result.assets?.[0]) {
+        await updateProfile({ avatar: result.assets[0].uri });
+        Alert.alert('✅', t('profile.updateSuccess'));
+      }
+    } catch (err) {
+      console.error('[ProfileScreen] Lỗi đổi avatar:', err);
+      Alert.alert(t('common.error'), t('errors.unknownError'));
+    }
   }
 
   const styles = makeStyles(theme);
@@ -349,6 +414,8 @@ const editStyles = StyleSheet.create({
   saveText: { fontSize: 16, fontWeight: '700' },
   label: { fontSize: 14, fontWeight: '600', marginBottom: 6 },
   input: { borderRadius: 12, borderWidth: 1.5, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15 },
+  genderBtn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1.5 },
+  genderBtnText: { fontSize: 13 },
 });
 
 function makeStyles(theme) {

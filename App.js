@@ -4,6 +4,7 @@ import React from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 
 // Import các Context providers
 import { AuthProvider } from './src/context/AuthContext';
@@ -21,11 +22,56 @@ const NAV_FONTS = {
   heavy:   { fontFamily: 'System', fontWeight: '800' },
 };
 
+// ===== ERROR BOUNDARY =====
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error, info) {
+    console.error('[ErrorBoundary] Lỗi không xử lý được:', error, info);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <View style={errStyles.container}>
+          <Text style={errStyles.emoji}>😵</Text>
+          <Text style={errStyles.title}>Ứng dụng gặp sự cố</Text>
+          <Text style={errStyles.message}>
+            {this.state.error?.message || 'Lỗi không xác định'}
+          </Text>
+          <TouchableOpacity
+            style={errStyles.btn}
+            onPress={() => this.setState({ hasError: false, error: null })}
+          >
+            <Text style={errStyles.btnText}>Thử lại</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+const errStyles = StyleSheet.create({
+  container: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, backgroundColor: '#F0F6FF' },
+  emoji: { fontSize: 64, marginBottom: 16 },
+  title: { fontSize: 20, fontWeight: '700', color: '#0F1E3D', marginBottom: 8 },
+  message: { fontSize: 13, color: '#4A5C7A', textAlign: 'center', lineHeight: 20, marginBottom: 24 },
+  btn: { backgroundColor: '#1A6FD4', paddingHorizontal: 32, paddingVertical: 12, borderRadius: 24 },
+  btnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+});
+
 // Component bao bọc để dùng theme từ AppContext
 function AppContent() {
   const { theme, isDark } = useApp();
 
-  // Xây dựng navigation theme đúng chuẩn React Navigation v7
   const navTheme = {
     ...(isDark ? DarkTheme : DefaultTheme),
     fonts: NAV_FONTS,
@@ -53,14 +99,18 @@ function AppContent() {
 // Root component
 export default function App() {
   return (
-    <SafeAreaProvider>
-      <AppProvider>
-        <AuthProvider>
-          <MemoryProvider>
-            <AppContent />
-          </MemoryProvider>
-        </AuthProvider>
-      </AppProvider>
-    </SafeAreaProvider>
+    <ErrorBoundary>
+      <SafeAreaProvider>
+        <AppProvider>
+          <AuthProvider>
+            <MemoryProvider>
+              <ErrorBoundary>
+                <AppContent />
+              </ErrorBoundary>
+            </MemoryProvider>
+          </AuthProvider>
+        </AppProvider>
+      </SafeAreaProvider>
+    </ErrorBoundary>
   );
 }

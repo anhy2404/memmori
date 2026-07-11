@@ -1,0 +1,18 @@
+{
+  "enabled": true,
+  "name": "🔍 Kiểm tra Syntax khi lưu",
+  "description": "Mỗi khi bạn lưu file .js, tự động chạy node --check để phát hiện lỗi syntax ngay lập tức và báo nếu có vấn đề",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      "src/**/*.js",
+      "App.js"
+    ]
+  },
+  "then": {
+    "type": "runCommand",
+    "command": "node --check \"${file}\" 2>&1 && echo \"✅ Syntax OK: ${file}\" || echo \"❌ SYNTAX ERROR in ${file}\"",
+    "timeout": 10
+  }
+}
