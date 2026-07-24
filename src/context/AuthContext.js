@@ -1,6 +1,46 @@
 // src/context/AuthContext.js - Quản lý xác thực: đăng nhập, đăng ký, đăng xuất
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
+
+// Helper: lưu/đọc/xóa session an toàn qua SecureStore (thay AsyncStorage cho credentials)
+const SecureSession = {
+  async set(key, value) {
+    try {
+      await SecureStore.setItemAsync(key, JSON.stringify(value));
+    } catch {
+      // Fallback AsyncStorage nếu SecureStore không khả dụng (emulator/web)
+      await AsyncStorage.setItem(key, JSON.stringify(value));
+    }
+  },
+  async get(key) {
+    try {
+      const val = await SecureStore.getItemAsync(key);
+      return val ? JSON.parse(val) : null;
+    } catch {
+      const val = await AsyncStorage.getItem(key);
+      return val ? JSON.parse(val) : null;
+    }
+  },
+  async remove(key) {
+    try {
+      await SecureStore.deleteItemAsync(key);
+    } catch {}
+    try {
+      await AsyncStorage.removeItem(key);
+    } catch {}
+  },
+};
+
+// Hash đơn giản để không lưu plain text (không thay thế bcrypt nhưng tốt hơn nhiều)
+function simpleHash(str) {
+  let hash = 5381;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) + hash) + str.charCodeAt(i);
+    hash = hash & hash; // Convert to 32bit integer
+  }
+  return 'h_' + Math.abs(hash).toString(36) + '_' + str.length;
+}
 
 // Khóa AsyncStorage
 const STORAGE_KEYS = {

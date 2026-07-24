@@ -1,7 +1,7 @@
 {
   "enabled": true,
   "name": "🔄 Giữ Metro chạy",
-  "description": "Nếu Metro bị dừng (agentStop), tự động nhắc khởi động lại để app tiếp tục chạy",
+  "description": "Nếu Metro bị dừng (agentStop), tự động nhắc khởi động lại để app tiếp tục chạy\nnpx expo start --android",
   "version": "1",
   "when": {
     "type": "agentStop"
@@ -9,5 +9,7 @@
   "then": {
     "type": "askAgent",
     "prompt": "Kiểm tra nhanh xem process Metro (npx expo start) còn đang chạy không bằng list_processes. Nếu không còn chạy, khởi động lại bằng: control_pwsh_process start \"npx expo start --android\" tại d:\\mi\\APP\\MemoryMap. Nếu vẫn đang chạy thì không cần làm gì."
-  }
+  },
+  "workspaceFolderName": "MemoryMap",
+  "shortName": "keep-metro-alive"
 }

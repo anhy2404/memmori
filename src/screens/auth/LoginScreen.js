@@ -1,13 +1,16 @@
 // src/screens/auth/LoginScreen.js
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   KeyboardAvoidingView, Platform, ScrollView, Alert, ActivityIndicator,
+  Animated, Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
 import { useApp } from '../../context/AppContext';
 import AppLogo from '../../components/AppLogo';
+
+const { width } = Dimensions.get('window');
 
 export default function LoginScreen({ navigation }) {
   const { login } = useAuth();

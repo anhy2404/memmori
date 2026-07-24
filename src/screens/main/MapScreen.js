@@ -5,7 +5,7 @@ import {
   Modal, ScrollView, Image, Linking, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import MapView, { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
@@ -183,8 +183,8 @@ export default function MapScreen({ navigation }) {
       <MapView
         ref={mapRef}
         style={styles.map}
-        // iOS không cần PROVIDER_GOOGLE (tránh crash nếu chưa setup Google Maps SDK cho iOS)
-        provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
+        // Dùng default provider để tương thích Expo Go (không cần Google Maps API key)
+        provider={undefined}
         initialRegion={VIETNAM_REGION}
         showsUserLocation
         showsMyLocationButton={false}

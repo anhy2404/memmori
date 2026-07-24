@@ -5,6 +5,7 @@
   "scripts": {
     "start": "npx expo start --android --clear --localhost",
     "start:qr": "npx expo start --clear",
+    "start:tunnel": "npx expo start --tunnel --clear",
     "start:web": "npx expo start --web",
     "android": "npx expo start --android",
     "ios": "npx expo start --ios"
