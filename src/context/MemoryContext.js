@@ -67,6 +67,9 @@ export function MemoryProvider({ children }) {
       tags: Array.isArray(memoryData.tags) ? memoryData.tags : [],
       userId: memoryData.userId || null,
       aiCaption: memoryData.aiCaption || '',
+      privacy: memoryData.privacy || 'private', // 'private' | 'public'
+      taggedUsers: Array.isArray(memoryData.taggedUsers) ? memoryData.taggedUsers : [],
+      ownerName: memoryData.ownerName || '',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -142,8 +145,11 @@ export function MemoryProvider({ children }) {
   // ===== LẤY MEMORIES THEO BỘ LỌC =====
   const getFilteredMemories = useCallback((userId, filter = 'all') => {
     if (!userId) return [];
-    const userMemories = memories.filter(m => m.userId === userId);
-    if (filter === 'all') return userMemories;
+    // Hiện: memories của mình (mọi privacy) + memories public của người khác
+    const visibleMemories = memories.filter(m =>
+      m.userId === userId || m.privacy === 'public'
+    );
+    if (filter === 'all') return visibleMemories;
 
     const now = Date.now();
     const todayStart = new Date();
@@ -151,19 +157,19 @@ export function MemoryProvider({ children }) {
 
     switch (filter) {
       case 'today':
-        return userMemories.filter(m => new Date(m.createdAt) >= todayStart);
+        return visibleMemories.filter(m => new Date(m.createdAt) >= todayStart);
       case 'week': {
         const weekAgo = now - 7 * 24 * 60 * 60 * 1000;
-        return userMemories.filter(m => new Date(m.createdAt).getTime() >= weekAgo);
+        return visibleMemories.filter(m => new Date(m.createdAt).getTime() >= weekAgo);
       }
       case 'month': {
         const monthStart = new Date();
         monthStart.setDate(1);
         monthStart.setHours(0, 0, 0, 0);
-        return userMemories.filter(m => new Date(m.createdAt) >= monthStart);
+        return visibleMemories.filter(m => new Date(m.createdAt) >= monthStart);
       }
       default:
-        return userMemories;
+        return visibleMemories;
     }
   }, [memories]);
 

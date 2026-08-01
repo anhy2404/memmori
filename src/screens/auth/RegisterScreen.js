@@ -19,12 +19,12 @@ export default function RegisterScreen({ navigation }) {
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState({});
 
-  // Pilihan jenis kelamin - trung tính
+  // Các tùy chọn giới tính
   const GENDER_OPTIONS = [
-    { value: 'male', label: t('auth.genderMale') },
-    { value: 'female', label: t('auth.genderFemale') },
-    { value: 'other', label: t('auth.genderOther') },
-    { value: '', label: t('auth.genderPreferNotSay') },
+    { value: 'male',   label: '👨 ' + t('auth.genderMale') },
+    { value: 'female', label: '👩 ' + t('auth.genderFemale') },
+    { value: 'other',  label: '🧑 ' + t('auth.genderOther') },
+    { value: '',       label: '🤐 ' + t('auth.genderPreferNotSay') },
   ];
 
   function setField(key, val) {

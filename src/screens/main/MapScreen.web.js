@@ -54,7 +54,7 @@ export default function MapScreen({ navigation }) {
             <TouchableOpacity
               key={memory.id}
               style={[styles.card, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}
-              onPress={() => navigation.navigate('MemoryDetail', { memoryId: memory.id })}
+              onPress={() => navigation.navigate('MemoryDetail', { memory })}
               activeOpacity={0.8}
             >
               <Text style={styles.cardEmoji}>

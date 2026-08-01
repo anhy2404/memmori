@@ -7,6 +7,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useApp } from '../../context/AppContext';
+import { useAuth } from '../../context/AuthContext';
 import { useMemory } from '../../context/MemoryContext';
 
 const { width } = Dimensions.get('window');
@@ -14,11 +15,14 @@ const { width } = Dimensions.get('window');
 export default function MemoryDetailScreen({ route, navigation }) {
   const { memory: initialMemory } = route.params || {};
   const { theme, t } = useApp();
+  const { user } = useAuth();
   const { deleteMemory, updateMemory, getMemoryById } = useMemory();
 
   const memory = initialMemory
     ? (getMemoryById(initialMemory.id) || initialMemory)
     : null;
+
+  const isOwner = memory?.userId === user?.id;
 
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [isEditing, setIsEditing] = useState(false);
@@ -53,7 +57,7 @@ export default function MemoryDetailScreen({ route, navigation }) {
 
   // ===== Xóa =====
   const handleDelete = useCallback(() => {
-    if (isDeleting) return;
+    if (isDeleting || !isOwner) return;
     Alert.alert(
       t('memoryDetail.deleteMemory'),
       t('memoryDetail.confirmDelete'),
@@ -104,6 +108,17 @@ export default function MemoryDetailScreen({ route, navigation }) {
       setIsSaving(false);
     }
   }, [editTitle, editDesc, memory.id, updateMemory, t]);
+
+  // ===== Đổi quyền riêng tư =====
+  const handleTogglePrivacy = useCallback(async () => {
+    if (!isOwner) return;
+    const newPrivacy = memory.privacy === 'public' ? 'private' : 'public';
+    try {
+      await updateMemory(memory.id, { privacy: newPrivacy });
+    } catch {
+      Alert.alert(t('common.error'), t('memoryDetail.updateFailed'));
+    }
+  }, [isOwner, memory, updateMemory, t]);
 
   // ===== Chia sẻ =====
   const handleShare = useCallback(async () => {
@@ -197,8 +212,8 @@ export default function MemoryDetailScreen({ route, navigation }) {
 
           {/* Action bar */}
           <View style={[styles.actionBar, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
-            {/* Chỉnh sửa */}
-            {!isEditing ? (
+            {/* Chỉnh sửa - chỉ owner */}
+            {isOwner && (!isEditing ? (
               <TouchableOpacity style={styles.actionBarBtn} onPress={startEdit}>
                 <Text style={styles.actionBarEmoji}>✏️</Text>
                 <Text style={[styles.actionBarLabel, { color: theme.colors.primary }]}>{t('common.edit')}</Text>
@@ -215,9 +230,9 @@ export default function MemoryDetailScreen({ route, navigation }) {
                 }
                 <Text style={[styles.actionBarLabel, { color: theme.colors.success }]}>{t('common.save')}</Text>
               </TouchableOpacity>
-            )}
+            ))}
 
-            <View style={[styles.actionBarDivider, { backgroundColor: theme.colors.border }]} />
+            {isOwner && <View style={[styles.actionBarDivider, { backgroundColor: theme.colors.border }]} />}
 
             {/* Chia sẻ */}
             <TouchableOpacity style={styles.actionBarBtn} onPress={handleShare}>
@@ -233,20 +248,23 @@ export default function MemoryDetailScreen({ route, navigation }) {
               <Text style={[styles.actionBarLabel, { color: theme.colors.info }]}>{t('memoryDetail.viewOnMap')}</Text>
             </TouchableOpacity>
 
-            <View style={[styles.actionBarDivider, { backgroundColor: theme.colors.border }]} />
-
-            {/* Xóa */}
-            <TouchableOpacity
-              style={[styles.actionBarBtn, { opacity: isDeleting ? 0.5 : 1 }]}
-              onPress={handleDelete}
-              disabled={isDeleting}
-            >
-              {isDeleting
-                ? <ActivityIndicator size="small" color={theme.colors.error} />
-                : <Text style={styles.actionBarEmoji}>🗑️</Text>
-              }
-              <Text style={[styles.actionBarLabel, { color: theme.colors.error }]}>{t('common.delete')}</Text>
-            </TouchableOpacity>
+            {/* Xóa - chỉ owner */}
+            {isOwner && (
+              <>
+                <View style={[styles.actionBarDivider, { backgroundColor: theme.colors.border }]} />
+                <TouchableOpacity
+                  style={[styles.actionBarBtn, { opacity: isDeleting ? 0.5 : 1 }]}
+                  onPress={handleDelete}
+                  disabled={isDeleting}
+                >
+                  {isDeleting
+                    ? <ActivityIndicator size="small" color={theme.colors.error} />
+                    : <Text style={styles.actionBarEmoji}>🗑️</Text>
+                  }
+                  <Text style={[styles.actionBarLabel, { color: theme.colors.error }]}>{t('common.delete')}</Text>
+                </TouchableOpacity>
+              </>
+            )}
           </View>
 
           {/* Hủy chỉnh sửa */}
@@ -324,6 +342,52 @@ export default function MemoryDetailScreen({ route, navigation }) {
             </View>
           ) : null}
 
+          {/* Tagged users */}
+          {memory.taggedUsers?.length > 0 ? (
+            <View style={styles.tagsSection}>
+              <Text style={[styles.sectionLabel, { color: theme.colors.textSecondary }]}>
+                👥 Người được gắn thẻ
+              </Text>
+              <View style={styles.tagsRow}>
+                {memory.taggedUsers.map((u) => (
+                  <View key={u.id} style={[styles.tag, { backgroundColor: theme.colors.highlight, flexDirection: 'row', gap: 4 }]}>
+                    <Text style={{ fontSize: 11 }}>👤</Text>
+                    <Text style={[styles.tagText, { color: theme.colors.secondary }]}>@{u.fullName}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          ) : null}
+
+          {/* Privacy */}
+          <View style={[styles.privacyRow, {
+            backgroundColor: memory.privacy === 'public' ? '#22c55e18' : '#64748b18',
+            borderColor: memory.privacy === 'public' ? '#22c55e' : '#94a3b8',
+          }]}>
+            <Text style={{ fontSize: 20 }}>{memory.privacy === 'public' ? '🌐' : '🔒'}</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.privacyLabel, { color: memory.privacy === 'public' ? '#16a34a' : '#475569' }]}>
+                {memory.privacy === 'public' ? 'Công khai' : 'Chỉ mình tôi'}
+              </Text>
+              <Text style={[styles.privacyDesc, { color: theme.colors.textTertiary }]}>
+                {memory.privacy === 'public' ? 'Mọi người đều xem được' : 'Chỉ bạn mới thấy kỷ niệm này'}
+              </Text>
+            </View>
+            {isOwner && (
+              <TouchableOpacity
+                style={[styles.togglePrivacyBtn, {
+                  backgroundColor: memory.privacy === 'public' ? '#64748b20' : '#22c55e20',
+                  borderColor: memory.privacy === 'public' ? '#94a3b8' : '#22c55e',
+                }]}
+                onPress={handleTogglePrivacy}
+              >
+                <Text style={[{ fontSize: 11, fontWeight: '700', color: memory.privacy === 'public' ? '#475569' : '#16a34a' }]}>
+                  {memory.privacy === 'public' ? '🔒 Đặt riêng tư' : '🌐 Công khai'}
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
           {/* Padding bottom */}
           <View style={{ height: 24 }} />
         </View>
@@ -384,5 +448,16 @@ function makeStyles(theme) {
     tagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
     tag: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
     tagText: { fontSize: 13, fontWeight: '500' },
+    // Privacy
+    privacyRow: {
+      flexDirection: 'row', alignItems: 'center', gap: 12,
+      borderRadius: 14, borderWidth: 1.5, padding: 14,
+    },
+    privacyLabel: { fontSize: 14, fontWeight: '700', marginBottom: 2 },
+    privacyDesc: { fontSize: 12 },
+    togglePrivacyBtn: {
+      paddingHorizontal: 10, paddingVertical: 7,
+      borderRadius: 10, borderWidth: 1.5,
+    },
   });
 }

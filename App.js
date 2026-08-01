@@ -10,6 +10,10 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { AuthProvider } from './src/context/AuthContext';
 import { AppProvider, useApp } from './src/context/AppContext';
 import { MemoryProvider } from './src/context/MemoryContext';
+import { RequirementsProvider } from './src/context/RequirementsContext';
+
+// Màn hình chặn khi thiếu mạng / GPS
+import RequirementsGate from './src/components/RequirementsGate';
 
 // Import navigator
 import AppNavigator from './src/navigation/AppNavigator';
@@ -101,15 +105,20 @@ export default function App() {
   return (
     <ErrorBoundary>
       <SafeAreaProvider>
-        <AppProvider>
-          <AuthProvider>
-            <MemoryProvider>
-              <ErrorBoundary>
-                <AppContent />
-              </ErrorBoundary>
-            </MemoryProvider>
-          </AuthProvider>
-        </AppProvider>
+        <RequirementsProvider>
+          <AppProvider>
+            <AuthProvider>
+              <MemoryProvider>
+                <ErrorBoundary>
+                  {/* RequirementsGate chặn toàn bộ app nếu thiếu mạng hoặc GPS */}
+                  <RequirementsGate>
+                    <AppContent />
+                  </RequirementsGate>
+                </ErrorBoundary>
+              </MemoryProvider>
+            </AuthProvider>
+          </AppProvider>
+        </RequirementsProvider>
       </SafeAreaProvider>
     </ErrorBoundary>
   );

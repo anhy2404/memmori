@@ -3,7 +3,7 @@ import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   ScrollView, Alert, Image, ActivityIndicator,
-  Dimensions, Linking, BackHandler,
+  Dimensions, Linking, BackHandler, FlatList, Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
@@ -12,8 +12,15 @@ import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import { useMemory } from '../../context/MemoryContext';
 import { generateCaption } from '../../services/geminiService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width } = Dimensions.get('window');
+
+// ===== PRIVACY OPTIONS =====
+const PRIVACY_OPTIONS = [
+  { value: 'private', label: '🔒 Chỉ mình tôi', desc: 'Chỉ bạn mới xem được' },
+  { value: 'public',  label: '🌐 Công khai',    desc: 'Mọi người đều xem được' },
+];
 
 // Helper: xin quyền với fallback mở Settings
 async function requestPermission(requestFn, openSettingsMsg) {
@@ -53,11 +60,113 @@ export default function CreateScreen({ navigation }) {
   const [tags, setTags] = useState([]);
   const [tagInput, setTagInput] = useState('');
   const [aiCaption, setAiCaption] = useState('');
+  const [privacy, setPrivacy] = useState('private'); // 'private' | 'public'
+  const [taggedUsers, setTaggedUsers] = useState([]); // [{ id, fullName, email }]
+  const [tagUserInput, setTagUserInput] = useState('');
+  const [tagUserResults, setTagUserResults] = useState([]);
+  const [showTagUserModal, setShowTagUserModal] = useState(false);
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
   const [isLoadingAI, setIsLoadingAI] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   const styles = useMemo(() => makeStyles(theme), [theme]);
+
+  // Tự động lấy vị trí khi mở màn hình
+  useEffect(() => {
+    autoGetLocation();
+  }, []);
+
+  // Hàm lấy GPS dùng chung (auto + manual)
+  const fetchLocation = useCallback(async () => {
+    setIsLoadingLocation(true);
+    try {
+      const { status: existingStatus } = await Location.getForegroundPermissionsAsync();
+      let finalStatus = existingStatus;
+
+      if (existingStatus !== 'granted') {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        finalStatus = status;
+      }
+
+      if (finalStatus !== 'granted') return null;
+
+      let loc;
+      try {
+        loc = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.High,
+          mayShowUserSettingsDialog: true,
+        });
+      } catch {
+        loc = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+      }
+
+      const { latitude, longitude } = loc.coords;
+
+      // Reverse geocoding - loại bỏ trùng lặp, lấy địa chỉ sạch
+      let address = '';
+      let locationName = '';
+      try {
+        const geocode = await Location.reverseGeocodeAsync({ latitude, longitude });
+        if (geocode.length > 0) {
+          const g = geocode[0];
+
+          // Tập hợp các phần địa chỉ duy nhất (không trùng)
+          const seen = new Set();
+          const uniquePart = (val) => {
+            if (!val) return null;
+            const v = val.trim();
+            if (!v || seen.has(v.toLowerCase())) return null;
+            seen.add(v.toLowerCase());
+            return v;
+          };
+
+          const parts = [];
+
+          // Tên địa điểm cụ thể (quán, đường, tòa nhà...)
+          const namePart = uniquePart(g.name);
+          // Chỉ thêm name nếu khác street (tránh "Nguyễn Huệ, Nguyễn Huệ")
+          if (namePart && namePart !== g.street?.trim()) parts.push(namePart);
+
+          // Đường / phường / xã
+          if (uniquePart(g.street)) parts.push(g.street.trim());
+          if (uniquePart(g.district)) parts.push(g.district.trim());
+          // Thành phố / tỉnh
+          if (uniquePart(g.city)) parts.push(g.city.trim());
+          // Quốc gia (chỉ hiện nếu không phải VN hoặc chưa rõ)
+          const isVN = [g.country, g.region].some(p =>
+            p?.toLowerCase().includes('việt nam') ||
+            p?.toLowerCase().includes('vietnam')
+          );
+          if (!isVN && g.country && uniquePart(g.country)) parts.push(g.country.trim());
+
+          address = parts.slice(0, 4).join(', ');
+          locationName = g.name?.trim() || g.street?.trim() || g.city?.trim() || address;
+        }
+      } catch {
+        // fallback tọa độ
+      }
+
+      if (!address) {
+        address = `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
+        locationName = address;
+      }
+
+      return { lat: latitude, lng: longitude, address, name: locationName };
+    } catch (error) {
+      console.error('[CreateScreen] Lỗi lấy vị trí:', error);
+      return null;
+    } finally {
+      setIsLoadingLocation(false);
+    }
+  }, []);
+
+  // Tự động lấy vị trí khi mount (silent - không alert nếu từ chối)
+  const autoGetLocation = useCallback(async () => {
+    const result = await fetchLocation();
+    if (result) setLocation(result);
+  }, [fetchLocation]);
 
   // Cảnh báo khi có nội dung chưa lưu mà back
   const hasUnsaved = title.trim() || description.trim() || photos.length > 0;
@@ -156,82 +265,7 @@ export default function CreateScreen({ navigation }) {
     setPhotos(prev => prev.filter((_, i) => i !== index));
   }, []);
 
-  // ===== LẤY GPS =====
-  const handleGetLocation = useCallback(async () => {
-    setIsLoadingLocation(true);
-    try {
-      const { status: existingStatus } = await Location.getForegroundPermissionsAsync();
-      let finalStatus = existingStatus;
 
-      if (existingStatus !== 'granted') {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        finalStatus = status;
-      }
-
-      if (finalStatus !== 'granted') {
-        Alert.alert(
-          t('map.locationPermissionDenied'),
-          t('common.openSettingsHint'),
-          [
-            { text: t('common.cancel'), style: 'cancel' },
-            { text: t('common.openSettings'), onPress: () => Linking.openSettings() },
-          ]
-        );
-        return;
-      }
-
-      // Thử High accuracy trước, fallback Balanced
-      let loc;
-      try {
-        loc = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.High,
-          mayShowUserSettingsDialog: true,
-        });
-      } catch {
-        loc = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Balanced,
-        });
-      }
-
-      const { latitude, longitude } = loc.coords;
-
-      // Reverse geocoding - địa chỉ tiếng Việt
-      let address = '';
-      let locationName = '';
-      try {
-        const geocode = await Location.reverseGeocodeAsync({ latitude, longitude });
-        if (geocode.length > 0) {
-          const g = geocode[0];
-          const parts = [];
-          if (g.name && g.name !== g.street) parts.push(g.name);
-          if (g.street) parts.push(g.street);
-          if (g.subregion || g.district) parts.push(g.subregion || g.district);
-          if (g.city) parts.push(g.city);
-          const isVN = parts.some(p =>
-            p?.toLowerCase().includes('việt nam') ||
-            p?.toLowerCase().includes('vietnam')
-          );
-          if (!isVN && g.country) parts.push(g.country);
-          address = parts.filter(Boolean).slice(0, 4).join(', ');
-          locationName = g.name || g.street || g.city || address;
-        }
-      } catch {
-        // fallback tọa độ
-      }
-
-      if (!address) {
-        address = `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
-        locationName = address;
-      }
-
-      setLocation({ lat: latitude, lng: longitude, address, name: locationName });
-    } catch (error) {
-      console.error('[CreateScreen] Lỗi lấy vị trí:', error);
-      Alert.alert(t('common.error'), t('create.errorLocationFailed'));
-    } finally {
-      setIsLoadingLocation(false);
-    }
-  }, [t]);
 
   // ===== AI GỢI Ý CAPTION =====
   const handleAICaption = useCallback(async () => {
@@ -255,6 +289,47 @@ export default function CreateScreen({ navigation }) {
       setIsLoadingAI(false);
     }
   }, [photos, description, location, t]);
+
+  // ===== TÌM KIẾM NGƯỜI DÙNG ĐỂ GẮN THẺ =====
+  const searchUsers = useCallback(async (query) => {
+    if (!query.trim() || query.length < 2) {
+      setTagUserResults([]);
+      return;
+    }
+    try {
+      const db = await AsyncStorage.getItem('@memorymap_users_db');
+      const users = db ? JSON.parse(db) : [];
+      const q = query.toLowerCase().trim();
+      const results = users
+        .filter(u =>
+          u.id !== user?.id && // Không tự tag mình
+          (u.fullName?.toLowerCase().includes(q) || u.email?.toLowerCase().includes(q))
+        )
+        .slice(0, 6)
+        .map(u => ({ id: u.id, fullName: u.fullName, email: u.email }));
+      setTagUserResults(results);
+    } catch {
+      setTagUserResults([]);
+    }
+  }, [user?.id]);
+
+  const handleTagUserInput = useCallback((text) => {
+    setTagUserInput(text);
+    searchUsers(text);
+  }, [searchUsers]);
+
+  const addTaggedUser = useCallback((u) => {
+    if (!taggedUsers.find(t => t.id === u.id) && taggedUsers.length < 10) {
+      setTaggedUsers(prev => [...prev, u]);
+    }
+    setTagUserInput('');
+    setTagUserResults([]);
+    setShowTagUserModal(false);
+  }, [taggedUsers]);
+
+  const removeTaggedUser = useCallback((userId) => {
+    setTaggedUsers(prev => prev.filter(u => u.id !== userId));
+  }, []);
 
   // ===== THÊM TAG =====
   const handleAddTag = useCallback(() => {
@@ -287,6 +362,9 @@ export default function CreateScreen({ navigation }) {
         location,
         tags,
         aiCaption,
+        privacy,
+        taggedUsers,
+        ownerName: user?.fullName || '',
         userId: user?.id,
       });
       Alert.alert('✅', t('create.saveSuccess'), [
@@ -295,6 +373,7 @@ export default function CreateScreen({ navigation }) {
           onPress: () => {
             setTitle(''); setDescription(''); setPhotos([]);
             setLocation(null); setTags([]); setAiCaption('');
+            setPrivacy('private'); setTaggedUsers([]);
             navigation.navigate('Home');
           },
         },
@@ -428,35 +507,45 @@ export default function CreateScreen({ navigation }) {
         {/* ===== VỊ TRÍ ===== */}
         <View style={[styles.section, { paddingHorizontal: 16 }]}>
           <Text style={[styles.sectionLabel, { color: theme.colors.text }]}>📍 {t('create.locationLabel')}</Text>
-          <TouchableOpacity
-            style={[styles.locationBtn, {
-              backgroundColor: location ? theme.colors.success + '20' : theme.colors.inputBackground,
-              borderColor: location ? theme.colors.success : theme.colors.inputBorder,
-              opacity: isLoadingLocation ? 0.7 : 1,
-            }]}
-            onPress={handleGetLocation}
-            disabled={isLoadingLocation}
-          >
+          <View style={[styles.locationDisplay, {
+            backgroundColor: location ? theme.colors.success + '15' : theme.colors.highlight,
+            borderColor: location ? theme.colors.success : theme.colors.border,
+          }]}>
             {isLoadingLocation ? (
-              <ActivityIndicator color={theme.colors.primary} size="small" />
+              <>
+                <ActivityIndicator color={theme.colors.primary} size="small" />
+                <Text style={[styles.locationDisplayText, { color: theme.colors.textSecondary }]}>
+                  Đang xác định vị trí...
+                </Text>
+              </>
+            ) : location ? (
+              <>
+                <Text style={styles.locationDisplayEmoji}>📍</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.locationDisplayName, { color: theme.colors.success }]} numberOfLines={1}>
+                    {location.name}
+                  </Text>
+                  <Text style={[styles.locationDisplayAddress, { color: theme.colors.textSecondary }]} numberOfLines={2}>
+                    {location.address}
+                  </Text>
+                </View>
+                <Text style={[styles.locationBadge, { backgroundColor: theme.colors.success + '20', color: theme.colors.success }]}>
+                  GPS ✓
+                </Text>
+              </>
             ) : (
               <>
-                <Text style={styles.locationBtnEmoji}>{location ? '✅' : '📍'}</Text>
-                <Text style={[styles.locationBtnText, { color: location ? theme.colors.success : theme.colors.textSecondary }]} numberOfLines={1}>
-                  {location ? location.address : t('create.getLocation')}
+                <Text style={styles.locationDisplayEmoji}>🔍</Text>
+                <Text style={[styles.locationDisplayText, { color: theme.colors.textTertiary }]}>
+                  Không xác định được vị trí
                 </Text>
-                {location && (
-                  <TouchableOpacity onPress={() => setLocation(null)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                    <Text style={{ color: theme.colors.error, fontSize: 14 }}>✕</Text>
-                  </TouchableOpacity>
-                )}
               </>
             )}
-          </TouchableOpacity>
+          </View>
         </View>
 
         {/* ===== TAGS ===== */}
-        <View style={[styles.section, { paddingHorizontal: 16, paddingBottom: 32 }]}>
+        <View style={[styles.section, { paddingHorizontal: 16, paddingBottom: 8 }]}>
           <Text style={[styles.sectionLabel, { color: theme.colors.text }]}>🏷️ {t('create.tagsLabel')}</Text>
           <View style={styles.tagInputRow}>
             <TextInput
@@ -491,7 +580,131 @@ export default function CreateScreen({ navigation }) {
             </View>
           )}
         </View>
+
+        {/* ===== GẮN THẺ NGƯỜI DÙNG ===== */}
+        <View style={[styles.section, { paddingHorizontal: 16, paddingBottom: 8 }]}>
+          <Text style={[styles.sectionLabel, { color: theme.colors.text }]}>👥 Gắn thẻ người dùng</Text>
+          <TouchableOpacity
+            style={[styles.tagUserBtn, { borderColor: theme.colors.primary, backgroundColor: theme.colors.highlight }]}
+            onPress={() => { setTagUserInput(''); setTagUserResults([]); setShowTagUserModal(true); }}
+          >
+            <Text style={{ fontSize: 16 }}>🔍</Text>
+            <Text style={[{ fontSize: 13, color: theme.colors.primary, fontWeight: '600' }]}>
+              Tìm & gắn thẻ người dùng
+            </Text>
+          </TouchableOpacity>
+          {taggedUsers.length > 0 && (
+            <View style={styles.taggedUsersRow}>
+              {taggedUsers.map((u) => (
+                <View key={u.id} style={[styles.taggedUserChip, { backgroundColor: theme.colors.primarySoft || theme.colors.highlight, borderColor: theme.colors.primary }]}>
+                  <Text style={{ fontSize: 14 }}>👤</Text>
+                  <Text style={[{ fontSize: 12, color: theme.colors.primary, fontWeight: '600', maxWidth: 90 }]} numberOfLines={1}>
+                    {u.fullName}
+                  </Text>
+                  <TouchableOpacity onPress={() => removeTaggedUser(u.id)} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+                    <Text style={{ color: theme.colors.error, fontSize: 12, fontWeight: '700' }}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
+
+        {/* ===== QUYỀN RIÊNG TƯ ===== */}
+        <View style={[styles.section, { paddingHorizontal: 16, paddingBottom: 32 }]}>
+          <Text style={[styles.sectionLabel, { color: theme.colors.text }]}>🔐 Quyền riêng tư</Text>
+          <View style={styles.privacyRow}>
+            {PRIVACY_OPTIONS.map(opt => (
+              <TouchableOpacity
+                key={opt.value}
+                style={[
+                  styles.privacyBtn,
+                  { borderColor: privacy === opt.value ? theme.colors.primary : theme.colors.border,
+                    backgroundColor: privacy === opt.value ? theme.colors.primary + '18' : theme.colors.surface },
+                ]}
+                onPress={() => setPrivacy(opt.value)}
+                activeOpacity={0.8}
+              >
+                <Text style={{ fontSize: 20, marginBottom: 4 }}>
+                  {opt.value === 'private' ? '🔒' : '🌐'}
+                </Text>
+                <Text style={[styles.privacyLabel, {
+                  color: privacy === opt.value ? theme.colors.primary : theme.colors.text,
+                  fontWeight: privacy === opt.value ? '700' : '500',
+                }]}>
+                  {opt.value === 'private' ? 'Chỉ mình tôi' : 'Công khai'}
+                </Text>
+                <Text style={[styles.privacyDesc, { color: theme.colors.textTertiary }]}>{opt.desc}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
       </ScrollView>
+
+      {/* ===== MODAL TÌM NGƯỜI DÙNG ===== */}
+      <Modal
+        visible={showTagUserModal}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowTagUserModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalBox, { backgroundColor: theme.colors.card }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: theme.colors.text }]}>👥 Gắn thẻ người dùng</Text>
+              <TouchableOpacity onPress={() => setShowTagUserModal(false)}>
+                <Text style={{ color: theme.colors.textSecondary, fontSize: 22 }}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <TextInput
+              style={[styles.modalInput, { color: theme.colors.text, borderColor: theme.colors.primary, backgroundColor: theme.colors.inputBackground }]}
+              placeholder="Nhập tên hoặc email..."
+              placeholderTextColor={theme.colors.placeholder}
+              value={tagUserInput}
+              onChangeText={handleTagUserInput}
+              autoFocus
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            {tagUserResults.length > 0 ? (
+              <FlatList
+                data={tagUserResults}
+                keyExtractor={item => item.id}
+                style={{ maxHeight: 240 }}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={[styles.userResultItem, { borderBottomColor: theme.colors.border }]}
+                    onPress={() => addTaggedUser(item)}
+                  >
+                    <View style={[styles.userAvatar, { backgroundColor: theme.colors.primary + '30' }]}>
+                      <Text style={{ fontSize: 18 }}>👤</Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[{ color: theme.colors.text, fontWeight: '600', fontSize: 14 }]}>
+                        {item.fullName}
+                      </Text>
+                      <Text style={[{ color: theme.colors.textSecondary, fontSize: 12 }]}>
+                        {item.email}
+                      </Text>
+                    </View>
+                    <Text style={{ color: theme.colors.primary, fontSize: 12, fontWeight: '700' }}>+ Thêm</Text>
+                  </TouchableOpacity>
+                )}
+              />
+            ) : tagUserInput.length >= 2 ? (
+              <View style={{ alignItems: 'center', padding: 24 }}>
+                <Text style={{ fontSize: 32, marginBottom: 8 }}>🔍</Text>
+                <Text style={{ color: theme.colors.textSecondary, fontSize: 14 }}>Không tìm thấy người dùng</Text>
+              </View>
+            ) : (
+              <View style={{ alignItems: 'center', padding: 24 }}>
+                <Text style={{ fontSize: 32, marginBottom: 8 }}>👥</Text>
+                <Text style={{ color: theme.colors.textSecondary, fontSize: 13 }}>Nhập ít nhất 2 ký tự để tìm kiếm</Text>
+              </View>
+            )}
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -532,12 +745,19 @@ function makeStyles(theme) {
     aiCaptionBox: { marginTop: 8, padding: 12, borderRadius: 10, borderWidth: 1 },
     aiCaptionLabel: { fontSize: 12, fontWeight: '700', marginBottom: 4 },
     aiCaptionText: { fontSize: 13, lineHeight: 19 },
-    locationBtn: {
-      flexDirection: 'row', alignItems: 'center', gap: 8,
-      minHeight: 48, borderRadius: 12, borderWidth: 1.5, paddingHorizontal: 14, paddingVertical: 12,
+    locationDisplay: {
+      flexDirection: 'row', alignItems: 'center', gap: 10,
+      minHeight: 56, borderRadius: 12, borderWidth: 1.5,
+      paddingHorizontal: 14, paddingVertical: 12,
     },
-    locationBtnEmoji: { fontSize: 18 },
-    locationBtnText: { fontSize: 14, flex: 1 },
+    locationDisplayEmoji: { fontSize: 20 },
+    locationDisplayName: { fontSize: 14, fontWeight: '700', marginBottom: 2 },
+    locationDisplayAddress: { fontSize: 12, lineHeight: 17 },
+    locationDisplayText: { fontSize: 13, flex: 1 },
+    locationBadge: {
+      fontSize: 11, fontWeight: '700', paddingHorizontal: 8,
+      paddingVertical: 3, borderRadius: 8, overflow: 'hidden',
+    },
     tagInputRow: { flexDirection: 'row', gap: 8 },
     tagInput: { flex: 1, height: 44, borderRadius: 10, borderWidth: 1.5, paddingHorizontal: 12, fontSize: 14 },
     addTagBtn: { width: 44, height: 44, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
@@ -545,5 +765,51 @@ function makeStyles(theme) {
     tagsContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
     tagChip: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 14 },
     tagChipText: { fontSize: 12, fontWeight: '500' },
+    // Tag người dùng
+    tagUserBtn: {
+      flexDirection: 'row', alignItems: 'center', gap: 8,
+      paddingHorizontal: 14, paddingVertical: 10,
+      borderRadius: 12, borderWidth: 1.5, borderStyle: 'dashed',
+    },
+    taggedUsersRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
+    taggedUserChip: {
+      flexDirection: 'row', alignItems: 'center', gap: 5,
+      paddingHorizontal: 10, paddingVertical: 6,
+      borderRadius: 14, borderWidth: 1.5,
+    },
+    // Privacy
+    privacyRow: { flexDirection: 'row', gap: 12 },
+    privacyBtn: {
+      flex: 1, alignItems: 'center', justifyContent: 'center',
+      paddingVertical: 14, borderRadius: 14, borderWidth: 2,
+    },
+    privacyLabel: { fontSize: 13, marginBottom: 2 },
+    privacyDesc: { fontSize: 10, textAlign: 'center' },
+    // Modal
+    modalOverlay: {
+      flex: 1, backgroundColor: 'rgba(0,0,0,0.5)',
+      justifyContent: 'flex-end',
+    },
+    modalBox: {
+      borderTopLeftRadius: 24, borderTopRightRadius: 24,
+      padding: 20, minHeight: 320,
+    },
+    modalHeader: {
+      flexDirection: 'row', alignItems: 'center',
+      justifyContent: 'space-between', marginBottom: 16,
+    },
+    modalTitle: { fontSize: 17, fontWeight: '800' },
+    modalInput: {
+      height: 46, borderRadius: 12, borderWidth: 1.5,
+      paddingHorizontal: 14, fontSize: 14, marginBottom: 8,
+    },
+    userResultItem: {
+      flexDirection: 'row', alignItems: 'center', gap: 12,
+      paddingVertical: 12, borderBottomWidth: 1,
+    },
+    userAvatar: {
+      width: 40, height: 40, borderRadius: 20,
+      alignItems: 'center', justifyContent: 'center',
+    },
   });
 }
