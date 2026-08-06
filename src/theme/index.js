@@ -1,46 +1,53 @@
-// src/theme/index.js - MemoryMap Blue Theme
+// src/theme/index.js - MemoryMap Cute Pastel Theme 🌸
 
-// ===== PALETTE XANH DƯƠNG =====
+// ===== PALETTE =====
 const COLORS = {
-  // Primary - Xanh dương đậm (Ocean Blue)
-  primary:      '#1A6FD4',  // Xanh dương chính
-  primaryLight: '#4B96F3',  // Xanh dương nhạt
-  primaryDark:  '#0D4FA0',  // Xanh dương tối
-  primarySoft:  '#E8F1FD',  // Xanh dương rất nhạt (background highlight)
+  // Primary - Tím hồng dễ thương (Lavender Purple)
+  primary:      '#7C5CBF',  // Tím chính
+  primaryLight: '#A67DD4',  // Tím nhạt
+  primaryDark:  '#5A3D9A',  // Tím đậm
+  primarySoft:  '#F0EBFF',  // Tím rất nhạt
 
-  // Secondary - Xanh ngọc (Teal)
-  secondary:      '#0EA5C9', // Teal/Cyan
-  secondaryLight: '#67D7EF',
-  secondaryDark:  '#0A7A97',
+  // Secondary - Hồng san hô
+  secondary:      '#F06292', // Hồng đậm
+  secondaryLight: '#F8A5C2',
+  secondaryDark:  '#C2185B',
 
-  // Accent - Xanh sky
-  accent: '#38BDF8',
+  // Accent - Cam đào
+  accent: '#FF8A65',
+
+  // Pastel pops
+  peach:  '#FFCCBC',
+  mint:   '#B2DFDB',
+  sky:    '#B3E5FC',
+  lemon:  '#FFF9C4',
+  lilac:  '#E1BEE7',
 
   // Status
-  success: '#10B981',
-  warning: '#F59E0B',
-  error:   '#EF4444',
-  info:    '#3B82F6',
+  success: '#26C485',
+  warning: '#FFB74D',
+  error:   '#EF5350',
+  info:    '#42A5F5',
 
   // Neutral
   white: '#FFFFFF',
   black: '#000000',
 
   // Map
-  mapMarker: '#1A6FD4',
+  mapMarker: '#7C5CBF',
 };
 
 // ===== LIGHT THEME =====
 export const lightTheme = {
   dark: false,
   colors: {
-    background:   '#F0F6FF',  // Nền xanh rất nhạt
+    background:   '#FDF6FF',  // Nền tím cực nhạt, dễ thương
     surface:      '#FFFFFF',
     card:         '#FFFFFF',
 
-    text:         '#0F1E3D',  // Navy đậm
-    textSecondary:'#4A5C7A',
-    textTertiary: '#8FA3C0',
+    text:         '#2D1B4E',  // Tím đen sâu
+    textSecondary:'#6B4E8A',
+    textTertiary: '#AA90C8',
     textInverse:  '#FFFFFF',
 
     primary:      COLORS.primary,
@@ -54,56 +61,63 @@ export const lightTheme = {
 
     accent: COLORS.accent,
 
+    peach:  COLORS.peach,
+    mint:   COLORS.mint,
+    sky:    COLORS.sky,
+    lemon:  COLORS.lemon,
+    lilac:  COLORS.lilac,
+
     success: COLORS.success,
     warning: COLORS.warning,
     error:   COLORS.error,
     info:    COLORS.info,
 
-    border:      '#D0DFEF',
-    divider:     '#E8F0FA',
-    placeholder: '#6B85A0',  // đậm hơn - dễ đọc WCAG AA
-    disabled:    '#C8D8EC',
+    border:      '#E4D5F5',
+    divider:     '#F0E8FF',
+    placeholder: '#9E7FBB',
+    disabled:    '#D8C8EE',
 
     tabBar:        '#FFFFFF',
     tabBarActive:  COLORS.primary,
-    tabBarInactive:'#8FA3C0',
-    tabBarBorder:  '#D0DFEF',
+    tabBarInactive:'#C0A8D8',
+    tabBarBorder:  '#EDD5FF',
 
-    inputBackground:  '#FFFFFF',  // trắng tinh - ô rõ hơn
-    inputBorder:      '#A8BFD8',  // đậm hơn để thấy rõ border
+    inputBackground:  '#FFFFFF',
+    inputBorder:      '#CCB3E8',
     inputFocusBorder: COLORS.primary,
 
     buttonPrimary:     COLORS.primary,
     buttonSecondary:   COLORS.secondary,
-    buttonDisabled:    '#C8D8EC',
+    buttonDisabled:    '#D8C8EE',
     buttonText:        '#FFFFFF',
-    buttonTextDisabled:'#8FA3C0',
+    buttonTextDisabled:'#AA90C8',
 
-    cardShadow: 'rgba(26,111,212,0.08)',
-    cardBorder: '#D0DFEF',
+    cardShadow: 'rgba(124,92,191,0.10)',
+    cardBorder: '#EDD5FF',
 
     header:     '#FFFFFF',
-    headerText: '#0F1E3D',
-    headerBorder:'#D0DFEF',
+    headerText: '#2D1B4E',
+    headerBorder:'#EDD5FF',
 
-    icon:       '#4A5C7A',
+    icon:       '#6B4E8A',
     iconActive: COLORS.primary,
 
-    overlay:      'rgba(15,30,61,0.5)',
-    overlayLight: 'rgba(15,30,61,0.2)',
+    overlay:      'rgba(45,27,78,0.5)',
+    overlayLight: 'rgba(45,27,78,0.18)',
 
     mapMarker: COLORS.mapMarker,
 
     chatBubbleSelf:  COLORS.primary,
-    chatBubbleOther: '#EAF2FF',
+    chatBubbleOther: '#F5EEFF',
     chatTextSelf:    '#FFFFFF',
-    chatTextOther:   '#0F1E3D',
+    chatTextOther:   '#2D1B4E',
 
-    gradientStart: '#1A6FD4',
-    gradientEnd:   '#0EA5C9',
+    gradientStart: '#7C5CBF',
+    gradientMid:   '#F06292',
+    gradientEnd:   '#FF8A65',
 
-    skeleton:  '#D0DFEF',
-    highlight: 'rgba(26,111,212,0.08)',
+    skeleton:  '#EDD5FF',
+    highlight: 'rgba(124,92,191,0.09)',
 
     white: '#FFFFFF',
     black: '#000000',
@@ -127,38 +141,38 @@ export const lightTheme = {
   },
 
   borderRadius: {
-    sm: 4, md: 8, lg: 12, xl: 16,
-    '2xl': 20, '3xl': 24, full: 9999,
+    sm: 6, md: 10, lg: 14, xl: 18,
+    '2xl': 22, '3xl': 28, full: 9999,
   },
 
   shadows: {
     sm: {
-      shadowColor: '#1A6FD4',
-      shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.06,
-      shadowRadius: 3,
-      elevation: 1,
+      shadowColor: '#7C5CBF',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.08,
+      shadowRadius: 6,
+      elevation: 2,
     },
     md: {
-      shadowColor: '#1A6FD4',
-      shadowOffset: { width: 0, height: 3 },
-      shadowOpacity: 0.1,
-      shadowRadius: 8,
-      elevation: 3,
+      shadowColor: '#7C5CBF',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.13,
+      shadowRadius: 10,
+      elevation: 4,
     },
     lg: {
-      shadowColor: '#1A6FD4',
-      shadowOffset: { width: 0, height: 5 },
-      shadowOpacity: 0.14,
-      shadowRadius: 14,
-      elevation: 6,
+      shadowColor: '#7C5CBF',
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.18,
+      shadowRadius: 16,
+      elevation: 7,
     },
     xl: {
-      shadowColor: '#1A6FD4',
-      shadowOffset: { width: 0, height: 6 },
-      shadowOpacity: 0.22,
-      shadowRadius: 16,
-      elevation: 10,
+      shadowColor: '#7C5CBF',
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.26,
+      shadowRadius: 20,
+      elevation: 12,
     },
   },
 };
@@ -167,76 +181,83 @@ export const lightTheme = {
 export const darkTheme = {
   dark: true,
   colors: {
-    background:   '#060E1F',  // Đêm xanh đen
-    surface:      '#0D1B35',
-    card:         '#111F3F',
+    background:   '#120B22',  // Tím đen sâu
+    surface:      '#1E1133',
+    card:         '#261840',
 
-    text:         '#E8F0FF',
-    textSecondary:'#8FA8CC',
-    textTertiary: '#4A6080',
-    textInverse:  '#0D1B35',
+    text:         '#F0E8FF',
+    textSecondary:'#C4A8E0',
+    textTertiary: '#7A5E9A',
+    textInverse:  '#1E1133',
 
     primary:      COLORS.primaryLight,
-    primaryLight: '#7DB8FF',
+    primaryLight: '#C49EE8',
     primaryDark:  COLORS.primary,
-    primarySoft:  'rgba(75,150,243,0.15)',
+    primarySoft:  'rgba(166,125,212,0.18)',
 
     secondary:      COLORS.secondaryLight,
-    secondaryLight: '#9BE8F8',
+    secondaryLight: '#FCC8DC',
     secondaryDark:  COLORS.secondary,
 
     accent: COLORS.accent,
 
-    success: '#34D399',
-    warning: '#FBBF24',
-    error:   '#F87171',
-    info:    '#60A5FA',
+    peach:  'rgba(255,204,188,0.2)',
+    mint:   'rgba(178,223,219,0.2)',
+    sky:    'rgba(179,229,252,0.2)',
+    lemon:  'rgba(255,249,196,0.2)',
+    lilac:  'rgba(225,190,231,0.2)',
 
-    border:      '#1C3060',
-    divider:     '#152550',
-    placeholder: '#4A6080',
-    disabled:    '#1C3060',
+    success: '#4CD4A0',
+    warning: '#FFC66D',
+    error:   '#FF7070',
+    info:    '#70BFFF',
 
-    tabBar:        '#0D1B35',
+    border:      '#3A2258',
+    divider:     '#2C1A44',
+    placeholder: '#7A5E9A',
+    disabled:    '#3A2258',
+
+    tabBar:        '#1E1133',
     tabBarActive:  COLORS.primaryLight,
-    tabBarInactive:'#4A6080',
-    tabBarBorder:  '#1C3060',
+    tabBarInactive:'#6B4E8A',
+    tabBarBorder:  '#3A2258',
 
-    inputBackground:  '#152550',
-    inputBorder:      '#1C3060',
+    inputBackground:  '#2C1A44',
+    inputBorder:      '#3A2258',
     inputFocusBorder: COLORS.primaryLight,
 
     buttonPrimary:     COLORS.primaryLight,
     buttonSecondary:   COLORS.secondaryLight,
-    buttonDisabled:    '#1C3060',
-    buttonText:        '#060E1F',
-    buttonTextDisabled:'#4A6080',
+    buttonDisabled:    '#3A2258',
+    buttonText:        '#120B22',
+    buttonTextDisabled:'#7A5E9A',
 
-    cardShadow: 'rgba(0,0,0,0.4)',
-    cardBorder: '#1C3060',
+    cardShadow: 'rgba(0,0,0,0.5)',
+    cardBorder: '#3A2258',
 
-    header:      '#0D1B35',
-    headerText:  '#E8F0FF',
-    headerBorder:'#1C3060',
+    header:      '#1E1133',
+    headerText:  '#F0E8FF',
+    headerBorder:'#3A2258',
 
-    icon:       '#8FA8CC',
+    icon:       '#C4A8E0',
     iconActive: COLORS.primaryLight,
 
-    overlay:      'rgba(0,0,0,0.7)',
-    overlayLight: 'rgba(0,0,0,0.4)',
+    overlay:      'rgba(0,0,0,0.75)',
+    overlayLight: 'rgba(0,0,0,0.45)',
 
     mapMarker: COLORS.primaryLight,
 
     chatBubbleSelf:  COLORS.primaryLight,
-    chatBubbleOther: '#152550',
-    chatTextSelf:    '#060E1F',
-    chatTextOther:   '#E8F0FF',
+    chatBubbleOther: '#2C1A44',
+    chatTextSelf:    '#120B22',
+    chatTextOther:   '#F0E8FF',
 
-    gradientStart: '#4B96F3',
-    gradientEnd:   '#67D7EF',
+    gradientStart: '#A67DD4',
+    gradientMid:   '#F8A5C2',
+    gradientEnd:   '#FFAB80',
 
-    skeleton:  '#1C3060',
-    highlight: 'rgba(75,150,243,0.15)',
+    skeleton:  '#3A2258',
+    highlight: 'rgba(166,125,212,0.18)',
 
     white: '#FFFFFF',
     black: '#000000',
@@ -247,15 +268,68 @@ export const darkTheme = {
   borderRadius: lightTheme.borderRadius,
 
   shadows: {
-    sm: { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.25, shadowRadius: 3, elevation: 1 },
-    md: { shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.35, shadowRadius: 8, elevation: 3 },
-    lg: { shadowColor: '#000', shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.45, shadowRadius: 14, elevation: 6 },
-    xl: { shadowColor: COLORS.primaryLight, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.35, shadowRadius: 16, elevation: 10 },
+    sm: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 2 },
+    md: { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 10, elevation: 4 },
+    lg: { shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.5, shadowRadius: 16, elevation: 7 },
+    xl: { shadowColor: COLORS.primaryLight, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.4, shadowRadius: 20, elevation: 12 },
   },
 };
 
-export function getTheme(isDark = false) {
+// ===== PRESET ACCENT COLORS =====
+export const ACCENT_PRESETS = [
+  { id: 'lavender',  label: 'Tím Lavender', primary: '#7C5CBF', gradient: ['#7C5CBF', '#F06292', '#FF8A65'] },
+  { id: 'rose',      label: 'Hồng Rose',    primary: '#E91E8C', gradient: ['#E91E8C', '#FF6B9D', '#FFB3D1'] },
+  { id: 'ocean',     label: 'Xanh Ocean',   primary: '#1976D2', gradient: ['#1976D2', '#42A5F5', '#80D8FF'] },
+  { id: 'forest',    label: 'Xanh Lá',      primary: '#2E7D32', gradient: ['#2E7D32', '#66BB6A', '#A5D6A7'] },
+  { id: 'sunset',    label: 'Cam Sunset',   primary: '#E65100', gradient: ['#E65100', '#FF8A65', '#FFCCBC'] },
+  { id: 'berry',     label: 'Tím Berry',    primary: '#6A1B9A', gradient: ['#6A1B9A', '#AB47BC', '#CE93D8'] },
+  { id: 'coral',     label: 'San Hô',       primary: '#D84315', gradient: ['#D84315', '#FF7043', '#FF8A65'] },
+  { id: 'teal',      label: 'Xanh Teal',    primary: '#00796B', gradient: ['#00796B', '#26A69A', '#80CBC4'] },
+  { id: 'indigo',    label: 'Chàm Indigo',  primary: '#283593', gradient: ['#283593', '#5C6BC0', '#9FA8DA'] },
+  { id: 'gold',      label: 'Vàng Gold',    primary: '#F57F17', gradient: ['#F57F17', '#FBC02D', '#FFF176'] },
+  { id: 'cherry',    label: 'Đỏ Cherry',    primary: '#B71C1C', gradient: ['#B71C1C', '#EF5350', '#EF9A9A'] },
+  { id: 'mint',      label: 'Xanh Mint',    primary: '#00695C', gradient: ['#00695C', '#4DB6AC', '#B2DFDB'] },
+];
+
+// Tạo theme động theo màu accent chọn
+export function buildThemeWithAccent(isDark = false, accentPreset) {
+  const preset = accentPreset
+    ? (ACCENT_PRESETS.find(p => p.id === accentPreset) || ACCENT_PRESETS[0])
+    : ACCENT_PRESETS[0];
+
+  const base = isDark ? darkTheme : lightTheme;
+
+  // Tính màu nhạt hơn và đậm hơn từ primary
+  const primary = preset.primary;
+  const [gStart, gMid, gEnd] = preset.gradient;
+
+  return {
+    ...base,
+    colors: {
+      ...base.colors,
+      primary,
+      primaryLight:  gMid,
+      primaryDark:   gStart,
+      primarySoft:   isDark ? `${primary}30` : `${primary}15`,
+
+      tabBarActive:   primary,
+      inputFocusBorder: primary,
+      buttonPrimary:  primary,
+      iconActive:     primary,
+      mapMarker:      primary,
+      chatBubbleSelf: primary,
+      gradientStart:  gStart,
+      gradientMid:    gMid,
+      gradientEnd:    gEnd,
+      highlight:      `${primary}18`,
+    },
+    _accentId: preset.id,
+  };
+}
+
+export function getTheme(isDark = false, accentPreset) {
+  if (accentPreset) return buildThemeWithAccent(isDark, accentPreset);
   return isDark ? darkTheme : lightTheme;
 }
 
-export default { light: lightTheme, dark: darkTheme, getTheme, COLORS };
+export default { light: lightTheme, dark: darkTheme, getTheme, COLORS, ACCENT_PRESETS, buildThemeWithAccent };

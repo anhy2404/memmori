@@ -1,6 +1,5 @@
 // src/components/RequirementsGate.js
-// Màn hình chặn khi thiếu Mạng hoặc GPS
-// Hiển thị trạng thái từng điều kiện + nút Thử lại + mở Cài đặt
+// Màn hình chặn khi thiếu Mạng hoặc GPS - full i18n
 
 import React from 'react';
 import {
@@ -9,9 +8,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRequirements } from '../context/RequirementsContext';
+import { useApp } from '../context/AppContext';
 import AppLogo from './AppLogo';
 
-// ─── Hàng trạng thái từng điều kiện ─────────────────────────────────────────
 function StatusRow({ ok, label, hint }) {
   return (
     <View style={rowStyles.row}>
@@ -42,7 +41,6 @@ const rowStyles = StyleSheet.create({
   hint:     { fontSize: 12, color: '#6b7280', lineHeight: 18 },
 });
 
-// ─── Màn hình chính ──────────────────────────────────────────────────────────
 export default function RequirementsGate({ children }) {
   const {
     isOnline,
@@ -53,10 +51,10 @@ export default function RequirementsGate({ children }) {
     retryCheck,
   } = useRequirements();
 
-  // Nếu đã đủ điều kiện → render app bình thường
+  const { t } = useApp();
+
   if (allRequirementsMet) return children;
 
-  // Mở cài đặt hệ thống
   function openSettings() {
     if (Platform.OS === 'ios') {
       Linking.openURL('app-settings:');
@@ -67,44 +65,37 @@ export default function RequirementsGate({ children }) {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Logo */}
       <View style={styles.logoArea}>
         <AppLogo size={80} showName />
       </View>
 
-      {/* Tiêu đề */}
-      <Text style={styles.title}>Cần kết nối để tiếp tục</Text>
+      <Text style={styles.title}>{t('requirements.title')}</Text>
       <Text style={styles.subtitle}>
-        MemoryMap yêu cầu{'\n'}
-        <Text style={styles.bold}>mạng</Text> và <Text style={styles.bold}>định vị</Text>{' '}
-        để hoạt động đúng
+        {t('requirements.subtitle')}{'\n'}
+        <Text style={styles.bold}>{t('requirements.subtitleNetwork')}</Text>
+        {' '}{t('requirements.subtitleAnd')}{' '}
+        <Text style={styles.bold}>{t('requirements.subtitleLocation')}</Text>
+        {' '}{t('requirements.subtitleSuffix')}
       </Text>
 
-      {/* Trạng thái */}
       <View style={styles.statusCard}>
-        {/* Mạng */}
         <StatusRow
           ok={isOnline}
-          label={isOnline ? '📶  Đã kết nối mạng' : '📵  Chưa có mạng'}
-          hint="Bật WiFi hoặc dữ liệu di động (3G/4G/5G)"
+          label={isOnline ? t('requirements.networkOk') : t('requirements.networkFail')}
+          hint={t('requirements.networkHint')}
         />
-
-        {/* Dịch vụ định vị */}
         <StatusRow
           ok={locationEnabled}
-          label={locationEnabled ? '📍  Dịch vụ định vị đang bật' : '📍  Dịch vụ định vị tắt'}
-          hint="Vào Cài đặt → Quyền riêng tư → Dịch vụ định vị và bật lên"
+          label={locationEnabled ? t('requirements.locationServiceOk') : t('requirements.locationServiceFail')}
+          hint={t('requirements.locationServiceHint')}
         />
-
-        {/* Quyền định vị */}
         <StatusRow
           ok={locationGranted}
-          label={locationGranted ? '✅  Quyền định vị đã cấp' : '🔒  Chưa cấp quyền định vị'}
-          hint="Vào Cài đặt → Ứng dụng → MemoryMap → Quyền → Vị trí → Cho phép"
+          label={locationGranted ? t('requirements.locationPermOk') : t('requirements.locationPermFail')}
+          hint={t('requirements.locationPermHint')}
         />
       </View>
 
-      {/* Nút hành động */}
       <TouchableOpacity
         style={[styles.retryBtn, isChecking && styles.retryBtnDisabled]}
         onPress={retryCheck}
@@ -114,7 +105,7 @@ export default function RequirementsGate({ children }) {
         {isChecking ? (
           <ActivityIndicator color="#fff" size="small" />
         ) : (
-          <Text style={styles.retryBtnText}>🔄  Thử lại</Text>
+          <Text style={styles.retryBtnText}>{t('requirements.retryBtn')}</Text>
         )}
       </TouchableOpacity>
 
@@ -123,12 +114,10 @@ export default function RequirementsGate({ children }) {
         onPress={openSettings}
         activeOpacity={0.8}
       >
-        <Text style={styles.settingsBtnText}>⚙️  Mở Cài đặt</Text>
+        <Text style={styles.settingsBtnText}>{t('requirements.openSettings')}</Text>
       </TouchableOpacity>
 
-      <Text style={styles.footer}>
-        Cả Mạng và Định vị phải sẵn sàng trước khi vào MemoryMap
-      </Text>
+      <Text style={styles.footer}>{t('requirements.footer')}</Text>
     </SafeAreaView>
   );
 }

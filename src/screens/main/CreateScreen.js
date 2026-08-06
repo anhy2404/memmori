@@ -17,28 +17,24 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const { width } = Dimensions.get('window');
 
 // ===== PRIVACY OPTIONS =====
-const PRIVACY_OPTIONS = [
-  { value: 'private', label: '🔒 Chỉ mình tôi', desc: 'Chỉ bạn mới xem được' },
-  { value: 'public',  label: '🌐 Công khai',    desc: 'Mọi người đều xem được' },
-];
+// PRIVACY_OPTIONS được tạo động theo ngôn ngữ (xem bên trong component)
 
 // Helper: xin quyền với fallback mở Settings
-async function requestPermission(requestFn, openSettingsMsg) {
+async function requestPermission(requestFn, openSettingsMsg, cancelText, openSettingsText) {
   try {
-    const { status: existing } = await requestFn(false); // canAskAgain check
+    const { status: existing } = await requestFn(false);
     if (existing === 'granted') return true;
 
     const { status, canAskAgain } = await requestFn(true);
     if (status === 'granted') return true;
 
     if (!canAskAgain) {
-      // Đã từ chối vĩnh viễn - mở Settings
       Alert.alert(
-        '⚙️ Cần cấp quyền',
+        '⚙️',
         openSettingsMsg,
         [
-          { text: 'Hủy', style: 'cancel' },
-          { text: 'Mở Cài đặt', onPress: () => Linking.openSettings() },
+          { text: cancelText, style: 'cancel' },
+          { text: openSettingsText, onPress: () => Linking.openSettings() },
         ]
       );
     }
@@ -52,6 +48,12 @@ export default function CreateScreen({ navigation }) {
   const { theme, t } = useApp();
   const { user } = useAuth();
   const { addMemory } = useMemory();
+
+  // Privacy options - i18n
+  const PRIVACY_OPTIONS = useMemo(() => [
+    { value: 'private', label: `🔒 ${t('privacy.onlyMe')}`,  desc: t('privacy.privateDesc') },
+    { value: 'public',  label: `🌐 ${t('privacy.public')}`,   desc: t('privacy.publicDesc') },
+  ], [t]);
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -388,19 +390,10 @@ export default function CreateScreen({ navigation }) {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      {/* Header */}
+      {/* Header gọn */}
       <View style={[styles.header, { borderBottomColor: theme.colors.border }]}>
         <Text style={[styles.headerTitle, { color: theme.colors.text }]}>{t('create.title')}</Text>
-        <TouchableOpacity
-          style={[styles.saveHeaderBtn, { backgroundColor: theme.colors.primary }, isSaving && styles.btnDisabled]}
-          onPress={handleSave}
-          disabled={isSaving}
-        >
-          {isSaving
-            ? <ActivityIndicator color="#fff" size="small" />
-            : <Text style={styles.saveHeaderText}>{t('common.save')}</Text>
-          }
-        </TouchableOpacity>
+        {isSaving && <ActivityIndicator color={theme.colors.primary} size="small" />}
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
@@ -498,7 +491,7 @@ export default function CreateScreen({ navigation }) {
           </Text>
           {aiCaption ? (
             <View style={[styles.aiCaptionBox, { backgroundColor: theme.colors.highlight, borderColor: theme.colors.primary }]}>
-              <Text style={[styles.aiCaptionLabel, { color: theme.colors.primary }]}>✨ AI gợi ý:</Text>
+              <Text style={[styles.aiCaptionLabel, { color: theme.colors.primary }]}>{t('create.aiSuggested')}</Text>
               <Text style={[styles.aiCaptionText, { color: theme.colors.text }]}>{aiCaption}</Text>
             </View>
           ) : null}
@@ -515,7 +508,7 @@ export default function CreateScreen({ navigation }) {
               <>
                 <ActivityIndicator color={theme.colors.primary} size="small" />
                 <Text style={[styles.locationDisplayText, { color: theme.colors.textSecondary }]}>
-                  Đang xác định vị trí...
+                  {t('create.locating')}
                 </Text>
               </>
             ) : location ? (
@@ -530,14 +523,14 @@ export default function CreateScreen({ navigation }) {
                   </Text>
                 </View>
                 <Text style={[styles.locationBadge, { backgroundColor: theme.colors.success + '20', color: theme.colors.success }]}>
-                  GPS ✓
+                  {t('create.locationGpsOk')}
                 </Text>
               </>
             ) : (
               <>
                 <Text style={styles.locationDisplayEmoji}>🔍</Text>
                 <Text style={[styles.locationDisplayText, { color: theme.colors.textTertiary }]}>
-                  Không xác định được vị trí
+                  {t('create.locationUnknown')}
                 </Text>
               </>
             )}
@@ -583,14 +576,14 @@ export default function CreateScreen({ navigation }) {
 
         {/* ===== GẮN THẺ NGƯỜI DÙNG ===== */}
         <View style={[styles.section, { paddingHorizontal: 16, paddingBottom: 8 }]}>
-          <Text style={[styles.sectionLabel, { color: theme.colors.text }]}>👥 Gắn thẻ người dùng</Text>
+          <Text style={[styles.sectionLabel, { color: theme.colors.text }]}>{t('create.taggedUsersLabel')}</Text>
           <TouchableOpacity
             style={[styles.tagUserBtn, { borderColor: theme.colors.primary, backgroundColor: theme.colors.highlight }]}
             onPress={() => { setTagUserInput(''); setTagUserResults([]); setShowTagUserModal(true); }}
           >
             <Text style={{ fontSize: 16 }}>🔍</Text>
             <Text style={[{ fontSize: 13, color: theme.colors.primary, fontWeight: '600' }]}>
-              Tìm & gắn thẻ người dùng
+              {t('create.taggedUsersSearch')}
             </Text>
           </TouchableOpacity>
           {taggedUsers.length > 0 && (
@@ -612,31 +605,50 @@ export default function CreateScreen({ navigation }) {
 
         {/* ===== QUYỀN RIÊNG TƯ ===== */}
         <View style={[styles.section, { paddingHorizontal: 16, paddingBottom: 32 }]}>
-          <Text style={[styles.sectionLabel, { color: theme.colors.text }]}>🔐 Quyền riêng tư</Text>
-          <View style={styles.privacyRow}>
-            {PRIVACY_OPTIONS.map(opt => (
-              <TouchableOpacity
-                key={opt.value}
-                style={[
-                  styles.privacyBtn,
-                  { borderColor: privacy === opt.value ? theme.colors.primary : theme.colors.border,
-                    backgroundColor: privacy === opt.value ? theme.colors.primary + '18' : theme.colors.surface },
-                ]}
-                onPress={() => setPrivacy(opt.value)}
-                activeOpacity={0.8}
-              >
-                <Text style={{ fontSize: 20, marginBottom: 4 }}>
-                  {opt.value === 'private' ? '🔒' : '🌐'}
-                </Text>
-                <Text style={[styles.privacyLabel, {
-                  color: privacy === opt.value ? theme.colors.primary : theme.colors.text,
-                  fontWeight: privacy === opt.value ? '700' : '500',
-                }]}>
-                  {opt.value === 'private' ? 'Chỉ mình tôi' : 'Công khai'}
-                </Text>
-                <Text style={[styles.privacyDesc, { color: theme.colors.textTertiary }]}>{opt.desc}</Text>
-              </TouchableOpacity>
-            ))}
+          <Text style={[styles.sectionLabel, { color: theme.colors.text }]}>{t('privacy.sectionLabel')}</Text>
+
+          {/* Compact pill toggle */}
+          <View style={[styles.privacyPill, {
+            backgroundColor: theme.colors.highlight,
+            borderColor: theme.colors.inputBorder,
+          }]}>
+            {PRIVACY_OPTIONS.map((opt) => {
+              const isActive = privacy === opt.value;
+              const isPublicOpt = opt.value === 'public';
+              const activeColor = isPublicOpt ? '#16a34a' : theme.colors.primary;
+              return (
+                <TouchableOpacity
+                  key={opt.value}
+                  style={[
+                    styles.privacyPillBtn,
+                    isActive && { backgroundColor: activeColor },
+                  ]}
+                  onPress={() => setPrivacy(opt.value)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={{ fontSize: 14 }}>{isPublicOpt ? '🌐' : '🔒'}</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[
+                      styles.privacyPillLabel,
+                      { color: isActive ? '#fff' : theme.colors.text },
+                    ]}>
+                      {isPublicOpt ? t('privacy.public') : t('privacy.onlyMe')}
+                    </Text>
+                    <Text style={[
+                      styles.privacyPillDesc,
+                      { color: isActive ? 'rgba(255,255,255,0.7)' : theme.colors.textTertiary },
+                    ]}>
+                      {opt.desc}
+                    </Text>
+                  </View>
+                  {isActive && (
+                    <View style={styles.privacyCheck}>
+                      <Text style={{ color: '#fff', fontSize: 11, fontWeight: '800' }}>✓</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </View>
       </ScrollView>
@@ -658,7 +670,7 @@ export default function CreateScreen({ navigation }) {
             </View>
             <TextInput
               style={[styles.modalInput, { color: theme.colors.text, borderColor: theme.colors.primary, backgroundColor: theme.colors.inputBackground }]}
-              placeholder="Nhập tên hoặc email..."
+              placeholder={t('create.taggedUsersPlaceholder')}
               placeholderTextColor={theme.colors.placeholder}
               value={tagUserInput}
               onChangeText={handleTagUserInput}
@@ -687,24 +699,51 @@ export default function CreateScreen({ navigation }) {
                         {item.email}
                       </Text>
                     </View>
-                    <Text style={{ color: theme.colors.primary, fontSize: 12, fontWeight: '700' }}>+ Thêm</Text>
+                    <Text style={{ color: theme.colors.primary, fontSize: 12, fontWeight: '700' }}>{t('create.taggedUsersAdd')}</Text>
                   </TouchableOpacity>
                 )}
               />
             ) : tagUserInput.length >= 2 ? (
               <View style={{ alignItems: 'center', padding: 24 }}>
                 <Text style={{ fontSize: 32, marginBottom: 8 }}>🔍</Text>
-                <Text style={{ color: theme.colors.textSecondary, fontSize: 14 }}>Không tìm thấy người dùng</Text>
+                <Text style={{ color: theme.colors.textSecondary, fontSize: 14 }}>{t('create.taggedUsersNotFound')}</Text>
               </View>
             ) : (
               <View style={{ alignItems: 'center', padding: 24 }}>
                 <Text style={{ fontSize: 32, marginBottom: 8 }}>👥</Text>
-                <Text style={{ color: theme.colors.textSecondary, fontSize: 13 }}>Nhập ít nhất 2 ký tự để tìm kiếm</Text>
+                <Text style={{ color: theme.colors.textSecondary, fontSize: 13 }}>{t('create.taggedUsersMinChars')}</Text>
               </View>
             )}
           </View>
         </View>
       </Modal>
+
+      {/* ===== NÚT LƯU KỶ NIỆM (bottom sticky) ===== */}
+      <View style={[styles.saveFooter, {
+        backgroundColor: theme.colors.background,
+        borderTopColor: theme.colors.border,
+        shadowColor: theme.colors.primary,
+      }]}>
+        <TouchableOpacity
+          style={[
+            styles.saveBtn,
+            { backgroundColor: theme.colors.primary },
+            isSaving && styles.btnDisabled,
+          ]}
+          onPress={handleSave}
+          disabled={isSaving}
+          activeOpacity={0.85}
+        >
+          {isSaving ? (
+            <ActivityIndicator color="#fff" size="small" />
+          ) : (
+            <>
+              <Text style={styles.saveBtnEmoji}>📷</Text>
+              <Text style={styles.saveBtnText}>{t('create.saveMemory')}</Text>
+            </>
+          )}
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 }
@@ -777,14 +816,22 @@ function makeStyles(theme) {
       paddingHorizontal: 10, paddingVertical: 6,
       borderRadius: 14, borderWidth: 1.5,
     },
-    // Privacy
-    privacyRow: { flexDirection: 'row', gap: 12 },
-    privacyBtn: {
-      flex: 1, alignItems: 'center', justifyContent: 'center',
-      paddingVertical: 14, borderRadius: 14, borderWidth: 2,
+    // Privacy pill (compact)
+    privacyPill: {
+      borderRadius: 14, borderWidth: 1.5,
+      overflow: 'hidden', padding: 4, gap: 4,
     },
-    privacyLabel: { fontSize: 13, marginBottom: 2 },
-    privacyDesc: { fontSize: 10, textAlign: 'center' },
+    privacyPillBtn: {
+      flexDirection: 'row', alignItems: 'center', gap: 10,
+      paddingHorizontal: 14, paddingVertical: 10, borderRadius: 10,
+    },
+    privacyPillLabel: { fontSize: 13, fontWeight: '700' },
+    privacyPillDesc:  { fontSize: 10, lineHeight: 14 },
+    privacyCheck: {
+      width: 20, height: 20, borderRadius: 10,
+      backgroundColor: 'rgba(255,255,255,0.25)',
+      alignItems: 'center', justifyContent: 'center',
+    },
     // Modal
     modalOverlay: {
       flex: 1, backgroundColor: 'rgba(0,0,0,0.5)',
@@ -811,5 +858,20 @@ function makeStyles(theme) {
       width: 40, height: 40, borderRadius: 20,
       alignItems: 'center', justifyContent: 'center',
     },
+    // Nút lưu bottom
+    saveFooter: {
+      paddingHorizontal: 16, paddingVertical: 12,
+      borderTopWidth: 1,
+      shadowOffset: { width: 0, height: -3 },
+      shadowOpacity: 0.08, shadowRadius: 8, elevation: 8,
+    },
+    saveBtn: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+      gap: 10, height: 54, borderRadius: 27,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.3, shadowRadius: 10, elevation: 6,
+    },
+    saveBtnEmoji: { fontSize: 20 },
+    saveBtnText: { color: '#fff', fontSize: 16, fontWeight: '800', letterSpacing: 0.3 },
   });
 }

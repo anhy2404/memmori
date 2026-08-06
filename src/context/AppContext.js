@@ -2,13 +2,14 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useColorScheme } from 'react-native';
-import { lightTheme, darkTheme } from '../theme';
+import { lightTheme, darkTheme, buildThemeWithAccent, ACCENT_PRESETS } from '../theme';
 import { LANGUAGES, DEFAULT_LANGUAGE, t as translate } from '../i18n';
 
 // Khóa lưu trữ trong AsyncStorage
 const STORAGE_KEYS = {
   LANGUAGE: '@memorymap_language',
   THEME: '@memorymap_theme',
+  ACCENT: '@memorymap_accent',
   SETTINGS: '@memorymap_settings',
 };
 
@@ -18,10 +19,12 @@ const defaultContextValue = {
   theme: lightTheme,
   isDark: false,
   themeMode: 'system', // 'light' | 'dark' | 'system'
+  accentColor: 'lavender',
   settings: {},
   changeLanguage: () => {},
   toggleTheme: () => {},
   setThemeMode: () => {},
+  setAccentColor: () => {},
   t: (key, params) => key,
   isLoading: true,
 };
@@ -35,12 +38,13 @@ export function AppProvider({ children }) {
   
   const [language, setLanguage] = useState(DEFAULT_LANGUAGE);
   const [themeMode, setThemeModeState] = useState('system'); // 'light' | 'dark' | 'system'
+  const [accentColor, setAccentColorState] = useState('lavender');
   const [settings, setSettings] = useState({});
   const [isLoading, setIsLoading] = useState(true);
 
   // Tính toán isDark dựa trên themeMode và systemColorScheme
   const isDark = themeMode === 'dark' || (themeMode === 'system' && systemColorScheme === 'dark');
-  const theme = isDark ? darkTheme : lightTheme;
+  const theme = buildThemeWithAccent(isDark, accentColor);
 
   // Hàm dịch ngôn ngữ - bind với language hiện tại
   const t = useCallback((key, params = {}) => {
@@ -69,6 +73,12 @@ export function AppProvider({ children }) {
       // Áp dụng theme đã lưu
       if (savedTheme && ['light', 'dark', 'system'].includes(savedTheme)) {
         setThemeModeState(savedTheme);
+      }
+
+      // Áp dụng accent color đã lưu
+      const savedAccent = await AsyncStorage.getItem(STORAGE_KEYS.ACCENT);
+      if (savedAccent && ACCENT_PRESETS.find(p => p.id === savedAccent)) {
+        setAccentColorState(savedAccent);
       }
 
       // Áp dụng settings khác
@@ -123,31 +133,44 @@ export function AppProvider({ children }) {
     }
   }, []);
 
+  // Đặt màu accent
+  const setAccentColor = useCallback(async (accentId) => {
+    try {
+      if (!ACCENT_PRESETS.find(p => p.id === accentId)) {
+        throw new Error(`Accent không hợp lệ: ${accentId}`);
+      }
+      setAccentColorState(accentId);
+      await AsyncStorage.setItem(STORAGE_KEYS.ACCENT, accentId);
+    } catch (error) {
+      console.error('[AppContext] Lỗi đặt accent color:', error);
+      throw error;
+    }
+  }, []);
+
   // Cập nhật setting tùy chỉnh
   const updateSetting = useCallback(async (key, value) => {
     try {
-      setSettings(prev => {
-        const newSettings = { ...prev, [key]: value };
-        AsyncStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(newSettings))
-          .catch(err => console.error('[AppContext] Lỗi lưu setting:', err));
-        return newSettings;
-      });
+      const newSettings = { ...settings, [key]: value };
+      setSettings(newSettings);
+      await AsyncStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(newSettings));
     } catch (error) {
       console.error('[AppContext] Lỗi cập nhật setting:', error);
       throw error;
     }
-  }, []);
+  }, [settings]);
 
   const contextValue = {
     language,
     theme,
     isDark,
     themeMode,
+    accentColor,
     settings,
     isLoading,
     changeLanguage,
     toggleTheme,
     setThemeMode,
+    setAccentColor,
     updateSetting,
     t,
   };

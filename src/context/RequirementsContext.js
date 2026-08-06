@@ -52,6 +52,7 @@ export function RequirementsProvider({ children }) {
   }, []);
 
   // ─── Bắt đầu polling GPS ────────────────────────────────────────────────────
+  // Chỉ poll khi chưa đủ điều kiện — dừng khi đã OK để tiết kiệm pin
   const startLocationPolling = useCallback(() => {
     if (intervalRef.current) return;
     intervalRef.current = setInterval(checkLocation, LOCATION_CHECK_INTERVAL);
@@ -121,6 +122,15 @@ export function RequirementsProvider({ children }) {
 
   // Điều kiện đủ để vào app
   const allRequirementsMet = isOnline && locationEnabled && locationGranted;
+
+  // Dừng polling khi đã đủ điều kiện, khởi động lại khi thiếu điều kiện
+  useEffect(() => {
+    if (allRequirementsMet) {
+      stopLocationPolling();
+    } else if (!isChecking) {
+      startLocationPolling();
+    }
+  }, [allRequirementsMet, isChecking, startLocationPolling, stopLocationPolling]);
 
   return (
     <RequirementsContext.Provider value={{

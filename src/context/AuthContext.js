@@ -94,6 +94,7 @@ export function AuthProvider({ children }) {
           fullName: 'Người Dùng Demo',
           phonenumber: '0901234567',
           bio: 'Tài khoản demo MemoryMap',
+          gender: '',
           avatar: null,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
@@ -190,6 +191,7 @@ export function AuthProvider({ children }) {
         fullName: fullName.trim(),
         phonenumber: phonenumber.trim(),
         bio: bio.trim(),
+        gender: '',
         avatar: null,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -206,6 +208,7 @@ export function AuthProvider({ children }) {
         fullName: newUser.fullName,
         phonenumber: newUser.phonenumber,
         bio: newUser.bio,
+        gender: newUser.gender || '',
         avatar: newUser.avatar,
         createdAt: newUser.createdAt,
         updatedAt: newUser.updatedAt,
@@ -222,6 +225,40 @@ export function AuthProvider({ children }) {
       console.error('[AuthContext] Lỗi đăng ký:', error.message);
       throw error;
     }
+  }
+
+  // ===== KIỂM TRA THÔNG TIN ĐĂNG NHẬP (không tạo session) =====
+  // Dùng trước khi gửi OTP để đảm bảo email/pass đúng
+  async function checkCredentials({ email, password }) {
+    const emailError = validateEmail(email);
+    if (emailError) throw new Error(emailError);
+
+    const passwordError = validatePassword(password);
+    if (passwordError) throw new Error(passwordError);
+
+    const users = await getUsersDB();
+    const foundUser = users.find(
+      u => u.email.toLowerCase() === email.toLowerCase().trim() && u.password === password
+    );
+
+    if (!foundUser) {
+      throw new Error('Email hoặc mật khẩu không đúng');
+    }
+
+    return { success: true, fullName: foundUser.fullName };
+  }
+
+  // ===== KIỂM TRA EMAIL ĐÃ TỒN TẠI CHƯA (dùng trước khi gửi OTP register) =====
+  async function checkEmailAvailable(email) {
+    const emailError = validateEmail(email);
+    if (emailError) throw new Error(emailError);
+
+    const users = await getUsersDB();
+    const existing = users.find(u => u.email.toLowerCase() === email.toLowerCase().trim());
+    if (existing) {
+      throw new Error('Email này đã được đăng ký');
+    }
+    return { available: true };
   }
 
   // ===== ĐĂNG NHẬP =====
@@ -251,6 +288,7 @@ export function AuthProvider({ children }) {
         fullName: foundUser.fullName,
         phonenumber: foundUser.phonenumber || '',
         bio: foundUser.bio || '',
+        gender: foundUser.gender || '',
         avatar: foundUser.avatar || null,
         createdAt: foundUser.createdAt,
         updatedAt: foundUser.updatedAt,
@@ -323,6 +361,8 @@ export function AuthProvider({ children }) {
     validateEmail,
     validatePassword,
     validateFullName,
+    checkCredentials,
+    checkEmailAvailable,
   };
 
   return (

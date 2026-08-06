@@ -93,6 +93,7 @@ export default {
     settings: 'Cài đặt',
     aiChat: 'AI Chat',
     memoryDetail: 'Chi tiết kỷ niệm',
+    friends: 'Bạn bè',
   },
 
   // ===== TRANG CHỦ =====
@@ -113,6 +114,10 @@ export default {
     greetingMorning: 'Chào buổi sáng',
     greetingAfternoon: 'Chào buổi chiều',
     greetingEvening: 'Chào buổi tối',
+    newest: '⭐ Mới nhất',
+    you: 'Bạn',
+    otherUser: 'Người dùng khác',
+    youSuffix: ' (bạn)',
   },
 
   // ===== BẢN ĐỒ =====
@@ -166,6 +171,21 @@ export default {
     unsavedMessage: 'Nội dung chưa lưu sẽ bị mất.',
     continueEditing: 'Tiếp tục chỉnh sửa',
     discardChanges: 'Bỏ qua',
+    // Location
+    locating: 'Đang xác định vị trí...',
+    locationUnknown: 'Không xác định được vị trí',
+    locationGpsOk: 'GPS ✓',
+    // Tagged users
+    taggedUsersLabel: '👥 Gắn thẻ người dùng',
+    taggedUsersSearch: 'Tìm & gắn thẻ người dùng',
+    taggedUsersPlaceholder: 'Nhập tên hoặc email...',
+    taggedUsersNotFound: 'Không tìm thấy người dùng',
+    taggedUsersMinChars: 'Nhập ít nhất 2 ký tự để tìm kiếm',
+    taggedUsersAdd: '+ Thêm',
+    // AI caption
+    aiSuggested: '✨ AI gợi ý:',
+    // Permission alert
+    permissionNeeded: '⚙️ Cần cấp quyền',
   },
 
   // ===== KHÁM PHÁ =====
@@ -288,6 +308,45 @@ export default {
     twoFactor: 'Xác thực 2 bước',
     deleteAccount: 'Xóa tài khoản',
     deleteAccountWarning: 'Hành động này không thể hoàn tác. Tất cả dữ liệu sẽ bị xóa vĩnh viễn.',
+    // Section titles
+    sectionDisplay: '🎨 Hiển thị',
+    sectionAI: '🤖 Trợ lý AI',
+    sectionHelp: '❓ Trợ giúp',
+    sectionSecurity: '🔒 Bảo mật',
+    sectionInfo: 'ℹ️ Thông tin',
+    aiAssistantLabel: 'Trợ lý MemoryMap AI',
+    aiAssistantDesc: 'Hỏi về du lịch Việt Nam',
+    developerValue: 'MemoryMap Team',
+    madeWith: 'Made with ❤️ in Vietnam',
+    // Feedback alert
+    feedbackTitle: '💬 Góp ý & Phản hồi',
+    feedbackMessage: 'Cảm ơn bạn muốn góp ý!\n\nLiên hệ: support@memorymap.vn\n\nHoặc để lại đánh giá trên App Store/Google Play.',
+    feedbackClose: 'Đóng',
+    feedbackEmail: '📧 Gửi Email',
+    // Rate app alert
+    rateAppTitle: '⭐ Đánh giá ứng dụng',
+    rateAppMessage: 'Bạn có muốn đánh giá MemoryMap trên cửa hàng ứng dụng không?',
+    rateAppLater: 'Để sau',
+    rateAppNow: '⭐ Đánh giá ngay',
+    rateAppThanks: 'Cảm ơn bạn đã sử dụng MemoryMap! ❤️',
+    // Privacy alert
+    privacyTitle: '🔒 Quyền riêng tư',
+    privacyMessage: 'MemoryMap cam kết bảo vệ quyền riêng tư của bạn:\n\n• Dữ liệu lưu trữ cục bộ trên thiết bị\n• Không chia sẻ thông tin cá nhân với bên thứ ba\n• Ảnh và kỷ niệm thuộc quyền sở hữu của bạn\n• Bạn có thể xóa tài khoản bất kỳ lúc nào',
+    privacyUnderstood: 'Đã hiểu',
+    // 2FA alert
+    twoFactorTitle: '🛡️ Xác thực 2 bước',
+    twoFactorMessage: 'Tính năng xác thực 2 bước sẽ được ra mắt trong phiên bản tiếp theo.\n\nHiện tại hãy đảm bảo mật khẩu của bạn đủ mạnh (ít nhất 8 ký tự, có chữ hoa và số).',
+    twoFactorUnderstood: 'Đã hiểu',
+    // Delete account
+    deleteAccountFinal: 'Xác nhận lần cuối',
+    deleteAccountFinalMsg: 'Nhập "XÓA" để xác nhận xóa tài khoản vĩnh viễn.',
+    deleteAccountConfirmBtn: 'Xóa vĩnh viễn',
+    // Passwords
+    currentPassword: 'Mật khẩu hiện tại',
+    newPassword: 'Mật khẩu mới',
+    confirmNewPassword: 'Xác nhận mật khẩu mới',
+    passwordChanged: 'Đổi mật khẩu thành công',
+    passwordWrong: 'Mật khẩu hiện tại không đúng',
   },
 
   // ===== CHI TIẾT KỶ NIỆM =====
@@ -308,6 +367,66 @@ export default {
     tags: 'Tags',
     noTags: 'Chưa có tags',
     viewOnMap: 'Bản đồ',
+    taggedUsersLabel: '👥 Người được gắn thẻ',
+    aiCaptionLabel: '✨ AI Caption',
+    shareMessage: '— Chia sẻ từ MemoryMap',
+  },
+
+  // ===== OTP =====
+  otp: {
+    title: 'Xác thực email',
+    subtitle: 'Mã OTP 6 số đã được gửi đến\n{{email}}\nVui lòng kiểm tra hộp thư của bạn.',
+    expiry: '⏱ Mã có hiệu lực trong 5 phút',
+    confirmLogin: '✅ Xác nhận & Đăng nhập',
+    confirmRegister: '✅ Xác nhận & Hoàn tất đăng ký',
+    noCode: 'Không nhận được mã?',
+    resend: 'Gửi lại',
+    resendIn: 'Gửi lại sau {{sec}}s',
+    resentSuccess: 'Đã gửi lại mã OTP đến {{email}}',
+    resentFailed: 'Gửi lại thất bại, vui lòng thử lại',
+    checkSpam: '📌 Nếu không thấy email, hãy kiểm tra thư mục Spam / Junk',
+    errorTitle: 'Xác thực thất bại',
+    errorIncomplete: 'Vui lòng nhập đầy đủ 6 số OTP',
+    errorWrong: 'Mã OTP không đúng, vui lòng thử lại',
+    errorExpired: 'Mã OTP đã hết hạn. Vui lòng nhấn Gửi lại để nhận mã mới',
+    errorTooMany: 'Nhập sai quá nhiều lần. Vui lòng nhấn Gửi lại để nhận mã mới',
+    errorNotFound: 'Không tìm thấy mã OTP. Vui lòng nhấn Gửi lại',
+    sendingOTP: 'Đang gửi mã OTP...',
+    sendOTPFailed: 'Gửi mã OTP thất bại, vui lòng thử lại',
+  },
+
+  // ===== REQUIREMENTS GATE =====
+  requirements: {
+    title: 'Cần kết nối để tiếp tục',
+    subtitle: 'MemoryMap yêu cầu',
+    subtitleNetwork: 'mạng',
+    subtitleAnd: 'và',
+    subtitleLocation: 'định vị',
+    subtitleSuffix: 'để hoạt động đúng',
+    networkOk: '📶  Đã kết nối mạng',
+    networkFail: '📵  Chưa có mạng',
+    networkHint: 'Bật WiFi hoặc dữ liệu di động (3G/4G/5G)',
+    locationServiceOk: '📍  Dịch vụ định vị đang bật',
+    locationServiceFail: '📍  Dịch vụ định vị tắt',
+    locationServiceHint: 'Vào Cài đặt → Quyền riêng tư → Dịch vụ định vị và bật lên',
+    locationPermOk: '✅  Quyền định vị đã cấp',
+    locationPermFail: '🔒  Chưa cấp quyền định vị',
+    locationPermHint: 'Vào Cài đặt → Ứng dụng → MemoryMap → Quyền → Vị trí → Cho phép',
+    retryBtn: '🔄  Thử lại',
+    openSettings: '⚙️  Mở Cài đặt',
+    footer: 'Cả Mạng và Định vị phải sẵn sàng trước khi vào MemoryMap',
+  },
+
+  // ===== PRIVACY =====
+  privacy: {
+    public: 'Công khai',
+    private: 'Riêng tư',
+    onlyMe: 'Chỉ mình tôi',
+    publicDesc: 'Mọi người đều xem được',
+    privateDesc: 'Chỉ bạn mới thấy kỷ niệm này',
+    switchToPrivate: '🔒 Riêng tư',
+    switchToPublic: '🌐 Công khai',
+    sectionLabel: '🔐 Quyền riêng tư',
   },
 
   // ===== LỖI CHUNG =====

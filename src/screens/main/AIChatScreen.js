@@ -57,11 +57,23 @@ export default function AIChatScreen() {
     role: 'assistant',
     content: t('aiChat.welcomeMessage'),
     timestamp: Date.now(),
-  }), []); // eslint-disable-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [language]);
 
   const [messages, setMessages] = useState([welcomeMsg]);
   const [input, setInput] = useState('');
   const [isThinking, setIsThinking] = useState(false);
+
+  // Reset welcome message khi ngôn ngữ thay đổi
+  useEffect(() => {
+    setMessages([{
+      id: `welcome_${Date.now()}`,
+      role: 'assistant',
+      content: t('aiChat.welcomeMessage'),
+      timestamp: Date.now(),
+    }]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [language]);
 
   // Đồng bộ ref với state
   useEffect(() => {

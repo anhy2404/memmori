@@ -67,64 +67,56 @@ export function MemoryProvider({ children }) {
       tags: Array.isArray(memoryData.tags) ? memoryData.tags : [],
       userId: memoryData.userId || null,
       aiCaption: memoryData.aiCaption || '',
-      privacy: memoryData.privacy || 'private', // 'private' | 'public'
+      privacy: memoryData.privacy || 'private',
       taggedUsers: Array.isArray(memoryData.taggedUsers) ? memoryData.taggedUsers : [],
       ownerName: memoryData.ownerName || '',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
 
-    return new Promise((resolve, reject) => {
-      setMemories(prev => {
-        const updatedList = [newMemory, ...prev];
-        saveMemories(updatedList)
-          .then(() => resolve({ success: true, memory: newMemory }))
-          .catch(err => {
-            console.error('[MemoryContext] Lỗi lưu sau addMemory:', err);
-            reject(new Error('Lưu kỷ niệm thất bại - kiểm tra bộ nhớ thiết bị'));
-          });
-        return updatedList;
-      });
-    });
-  }, []);
+    // Tính updatedList trước khi setState để tránh async trong setState updater
+    const updatedList = [newMemory, ...memories];
+    try {
+      await saveMemories(updatedList);
+      setMemories(updatedList);
+      return { success: true, memory: newMemory };
+    } catch (err) {
+      console.error('[MemoryContext] Lỗi lưu sau addMemory:', err);
+      throw new Error('Lưu kỷ niệm thất bại - kiểm tra bộ nhớ thiết bị');
+    }
+  }, [memories]);
 
   // ===== XÓA MEMORY =====
   const deleteMemory = useCallback(async (memoryId) => {
-    return new Promise((resolve, reject) => {
-      setMemories(prev => {
-        const updatedList = prev.filter(m => m.id !== memoryId);
-        saveMemories(updatedList)
-          .then(() => resolve({ success: true }))
-          .catch(err => {
-            console.error('[MemoryContext] Lỗi lưu sau deleteMemory:', err);
-            reject(new Error('Xóa kỷ niệm thất bại'));
-          });
-        return updatedList;
-      });
-    });
-  }, []);
+    const updatedList = memories.filter(m => m.id !== memoryId);
+    try {
+      await saveMemories(updatedList);
+      setMemories(updatedList);
+      return { success: true };
+    } catch (err) {
+      console.error('[MemoryContext] Lỗi lưu sau deleteMemory:', err);
+      throw new Error('Xóa kỷ niệm thất bại');
+    }
+  }, [memories]);
 
   // ===== CẬP NHẬT MEMORY =====
   const updateMemory = useCallback(async (memoryId, updates) => {
     // Loại bỏ các field không được phép update trực tiếp
     const { id: _id, userId: _uid, createdAt: _ca, ...safeUpdates } = updates;
-    return new Promise((resolve, reject) => {
-      setMemories(prev => {
-        const updatedList = prev.map(m =>
-          m.id === memoryId
-            ? { ...m, ...safeUpdates, updatedAt: new Date().toISOString() }
-            : m
-        );
-        saveMemories(updatedList)
-          .then(() => resolve({ success: true }))
-          .catch(err => {
-            console.error('[MemoryContext] Lỗi lưu sau updateMemory:', err);
-            reject(new Error('Cập nhật kỷ niệm thất bại'));
-          });
-        return updatedList;
-      });
-    });
-  }, []);
+    const updatedList = memories.map(m =>
+      m.id === memoryId
+        ? { ...m, ...safeUpdates, updatedAt: new Date().toISOString() }
+        : m
+    );
+    try {
+      await saveMemories(updatedList);
+      setMemories(updatedList);
+      return { success: true };
+    } catch (err) {
+      console.error('[MemoryContext] Lỗi lưu sau updateMemory:', err);
+      throw new Error('Cập nhật kỷ niệm thất bại');
+    }
+  }, [memories]);
 
   // ===== LẤY MEMORIES THEO USER =====
   const getMyMemories = useCallback((userId) => {

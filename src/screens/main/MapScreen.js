@@ -4,7 +4,6 @@ import {
   View, Text, TouchableOpacity, StyleSheet, Alert, Platform,
   Modal, ScrollView, Image, Linking, ActivityIndicator,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import MapView, { Marker, Polygon, Circle } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { useApp } from '../../context/AppContext';
@@ -228,7 +227,7 @@ function MemoryDetailModal({ memory, visible, onClose, theme, t }) {
   );
 }
 
-export default function MapScreen({ navigation }) {
+export default function MapScreen({ navigation, embedded = false }) {
   const { theme, t } = useApp();
   const { user } = useAuth();
   const { getMemoriesWithLocation } = useMemory();
@@ -318,16 +317,25 @@ export default function MapScreen({ navigation }) {
   const styles = useMemo(() => makeStyles(theme), [theme]);
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      {/* Header */}
-      <View style={[styles.header, { backgroundColor: theme.colors.header }]}>
-        <Text style={[styles.headerTitle, { color: theme.colors.headerText }]}>
-          {t('map.title')}
-        </Text>
-        <Text style={[styles.headerCount, { color: theme.colors.primary }]}>
-          {memoriesWithLocation.length} {t('map.memories')}
-        </Text>
-      </View>
+    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      {/* Header - ẩn khi embedded vì MapDiscoverScreen đã có header riêng */}
+      {!embedded && (
+        <View style={[styles.header, { backgroundColor: theme.colors.card, ...theme.shadows.sm }]}>
+          <View>
+            <Text style={[styles.headerTitle, { color: theme.colors.text }]}>
+              {t('map.title')}
+            </Text>
+            {memoriesWithLocation.length > 0 && (
+              <Text style={[styles.headerSub, { color: theme.colors.textSecondary }]}>
+                ⭐ {memoriesWithLocation.length} {t('map.memories')}
+              </Text>
+            )}
+          </View>
+          <View style={[styles.headerBadge, { backgroundColor: theme.colors.primarySoft }]}>
+            <Text style={{ fontSize: 18 }}>🗺️</Text>
+          </View>
+        </View>
+      )}
 
       {/* Bản đồ */}
       <MapView
@@ -515,18 +523,16 @@ export default function MapScreen({ navigation }) {
 
       {/* Nút vị trí */}
       <TouchableOpacity
-        style={[styles.locationBtn, { backgroundColor: theme.colors.card, ...theme.shadows.md, opacity: isLocating ? 0.7 : 1 }]}
+        style={[styles.locationBtn, { backgroundColor: theme.colors.primary, opacity: isLocating ? 0.7 : 1 }]}
         onPress={goToMyLocation}
         disabled={isLocating}
         activeOpacity={0.8}
       >
         {isLocating
-          ? <ActivityIndicator color={theme.colors.primary} size="small" />
-          : <Text style={styles.locationBtnEmoji}>📍</Text>
+          ? <ActivityIndicator color="#fff" size="small" />
+          : <Text style={{ fontSize: 18 }}>📍</Text>
         }
-        <Text style={[styles.locationBtnText, { color: theme.colors.primary }]}>
-          {t('map.myLocation')}
-        </Text>
+        <Text style={styles.locationBtnText}>{t('map.myLocation')}</Text>
       </TouchableOpacity>
 
       {/* Empty state */}
@@ -552,21 +558,21 @@ export default function MapScreen({ navigation }) {
         theme={theme}
         t={t}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
 const modalStyles = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  content: { borderTopLeftRadius: 24, borderTopRightRadius: 24, overflow: 'hidden' },
+  overlay: { flex: 1, backgroundColor: 'rgba(45,27,78,0.55)', justifyContent: 'flex-end' },
+  content: { borderTopLeftRadius: 28, borderTopRightRadius: 28, overflow: 'hidden' },
   image: { width: '100%', height: 200 },
-  imagePlaceholder: { width: '100%', height: 120, alignItems: 'center', justifyContent: 'center' },
+  imagePlaceholder: { width: '100%', height: 110, alignItems: 'center', justifyContent: 'center' },
   body: { padding: 16 },
-  title: { fontSize: 18, fontWeight: '700', marginBottom: 6 },
+  title: { fontSize: 18, fontWeight: '800', marginBottom: 6 },
   desc: { fontSize: 14, lineHeight: 20, marginBottom: 8 },
   meta: { gap: 4 },
   metaText: { fontSize: 12 },
-  closeBtn: { margin: 16, paddingVertical: 14, borderRadius: 12, alignItems: 'center' },
+  closeBtn: { margin: 16, paddingVertical: 14, borderRadius: 16, alignItems: 'center' },
   closeBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
 });
 
@@ -677,19 +683,25 @@ function makeStyles(theme) {
     islandLabelVN: { fontSize: 8, fontWeight: '700', lineHeight: 11 },
     islandLabelText: { fontSize: 8, fontWeight: '600', textAlign: 'center', lineHeight: 11 },
     locationBtn: {
-      position: 'absolute', bottom: 100, right: 16,
+      position: 'absolute', bottom: 110, right: 16,
       flexDirection: 'row', alignItems: 'center', gap: 6,
-      paddingHorizontal: 14, paddingVertical: 10, borderRadius: 24, minWidth: 44,
+      paddingHorizontal: 16, paddingVertical: 11, borderRadius: 28,
+      elevation: 6,
+      shadowColor: '#7C5CBF', shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.35, shadowRadius: 10,
     },
-    locationBtnEmoji: { fontSize: 16 },
-    locationBtnText: { fontSize: 13, fontWeight: '600' },
+    locationBtnEmoji: { fontSize: 18 },
+    locationBtnText: { fontSize: 13, fontWeight: '700', color: '#fff' },
     emptyOverlay: {
-      position: 'absolute', bottom: 160, alignSelf: 'center',
-      width: 240, padding: 16, borderRadius: 16,
+      position: 'absolute', bottom: 170, alignSelf: 'center',
+      width: 240, padding: 16, borderRadius: 20,
       alignItems: 'center', gap: 8,
     },
     emptyText: { fontSize: 13, textAlign: 'center', fontWeight: '500' },
-    createMemoryBtn: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 16 },
-    createMemoryBtnText: { color: '#fff', fontSize: 13, fontWeight: '600' },
+    createMemoryBtn: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20 },
+    createMemoryBtnText: { color: '#fff', fontSize: 13, fontWeight: '700' },
+    // header additions
+    headerBadge: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center' },
+    headerSub: { fontSize: 12, marginTop: 2 },
   });
 }

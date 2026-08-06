@@ -3,7 +3,7 @@ import React, { useState, useMemo } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView,
   Image, Dimensions, Alert, Modal, TextInput,
-  ActivityIndicator, Linking,
+  ActivityIndicator, Linking, FlatList,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
@@ -180,6 +180,107 @@ function EditProfileModal({ user, visible, onClose, onSave, theme, t }) {
   );
 }
 
+// ===== STAT DETAIL MODAL =====
+function StatModal({ visible, type, memories, onClose, onPressMemory, theme, t }) {
+  const isLocations = type === 'locations';
+  const title = isLocations ? '📍 Địa điểm đã đến' : '📅 Kỷ niệm tháng này';
+
+  return (
+    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }}>
+        {/* Header */}
+        <View style={[smStyles.header, { borderBottomColor: theme.colors.border }]}>
+          <Text style={[smStyles.title, { color: theme.colors.text }]}>{title}</Text>
+          <TouchableOpacity onPress={onClose} style={smStyles.closeBtn}>
+            <Text style={[smStyles.closeText, { color: theme.colors.primary }]}>{t('common.close')}</Text>
+          </TouchableOpacity>
+        </View>
+
+        {memories.length === 0 ? (
+          <View style={smStyles.empty}>
+            <Text style={{ fontSize: 48, marginBottom: 12 }}>{isLocations ? '🗺️' : '📅'}</Text>
+            <Text style={[smStyles.emptyText, { color: theme.colors.textSecondary }]}>
+              {isLocations ? 'Chưa có địa điểm nào' : 'Chưa có kỷ niệm nào tháng này'}
+            </Text>
+          </View>
+        ) : (
+          <FlatList
+            data={memories}
+            keyExtractor={m => m.id}
+            contentContainerStyle={{ padding: 16, gap: 10 }}
+            showsVerticalScrollIndicator={false}
+            renderItem={({ item }) => {
+              const photo = item.photos?.[0];
+              const date = new Date(item.createdAt).toLocaleDateString('vi-VN', {
+                day: '2-digit', month: '2-digit', year: 'numeric',
+              });
+              const time = new Date(item.createdAt).toLocaleTimeString('vi-VN', {
+                hour: '2-digit', minute: '2-digit',
+              });
+              return (
+                <TouchableOpacity
+                  style={[smStyles.row, {
+                    backgroundColor: theme.colors.card,
+                    borderColor: theme.colors.border,
+                    ...theme.shadows.sm,
+                  }]}
+                  onPress={() => { onClose(); onPressMemory(item); }}
+                  activeOpacity={0.85}
+                >
+                  {/* Thumb */}
+                  {photo ? (
+                    <Image source={{ uri: photo }} style={smStyles.thumb} />
+                  ) : (
+                    <View style={[smStyles.thumb, { backgroundColor: theme.colors.highlight, alignItems: 'center', justifyContent: 'center' }]}>
+                      <Text style={{ fontSize: 22 }}>📝</Text>
+                    </View>
+                  )}
+                  {/* Info */}
+                  <View style={smStyles.info}>
+                    <Text style={[smStyles.memTitle, { color: theme.colors.text }]} numberOfLines={1}>
+                      {item.title || t('home.untitledMemory')}
+                    </Text>
+                    {isLocations && item.location?.address ? (
+                      <Text style={[smStyles.location, { color: theme.colors.primary }]} numberOfLines={1}>
+                        📍 {item.location.address}
+                      </Text>
+                    ) : null}
+                    <Text style={[smStyles.date, { color: theme.colors.textTertiary }]}>
+                      🗓️ {date}  ·  {time}
+                    </Text>
+                  </View>
+                  <Text style={{ color: theme.colors.textTertiary, fontSize: 18 }}>›</Text>
+                </TouchableOpacity>
+              );
+            }}
+          />
+        )}
+      </SafeAreaView>
+    </Modal>
+  );
+}
+
+const smStyles = StyleSheet.create({
+  header: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 20, paddingVertical: 14, borderBottomWidth: 1,
+  },
+  title:     { fontSize: 17, fontWeight: '800' },
+  closeBtn:  { paddingHorizontal: 4, paddingVertical: 4 },
+  closeText: { fontSize: 15, fontWeight: '700' },
+  empty:     { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  emptyText: { fontSize: 15 },
+  row: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    borderRadius: 14, borderWidth: 1, overflow: 'hidden',
+  },
+  thumb:    { width: 68, height: 68 },
+  info:     { flex: 1, paddingVertical: 10, gap: 3 },
+  memTitle: { fontSize: 14, fontWeight: '700' },
+  location: { fontSize: 12, fontWeight: '600' },
+  date:     { fontSize: 11 },
+});
+
 export default function ProfileScreen({ navigation }) {
   const { theme, t } = useApp();
   const { user, logout, updateProfile } = useAuth();
@@ -187,9 +288,30 @@ export default function ProfileScreen({ navigation }) {
 
   const [showEdit, setShowEdit] = useState(false);
   const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'list'
+  const [statModal, setStatModal] = useState(null); // null | 'locations' | 'thisMonth'
 
   const myMemories = useMemo(() => getMyMemories(user?.id), [user?.id, getMyMemories]);
   const stats = useMemo(() => getStats(user?.id), [user?.id, getStats]);
+
+  // Danh sách địa điểm duy nhất kèm memories
+  const locationMemories = useMemo(() => {
+    const seen = new Set();
+    return myMemories
+      .filter(m => m.location?.name)
+      .filter(m => {
+        if (seen.has(m.location.name)) return false;
+        seen.add(m.location.name);
+        return true;
+      })
+      .map(m => ({ ...m }));
+  }, [myMemories]);
+
+  // Memories tháng này
+  const thisMonthMemories = useMemo(() => {
+    const monthStart = new Date();
+    monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
+    return myMemories.filter(m => new Date(m.createdAt) >= monthStart);
+  }, [myMemories]);
 
   const joinedDate = user?.createdAt
     ? new Date(user.createdAt).toLocaleDateString('vi-VN', { month: 'long', year: 'numeric' })
@@ -302,9 +424,19 @@ export default function ProfileScreen({ navigation }) {
         <View style={[styles.statsCard, { backgroundColor: theme.colors.card, ...theme.shadows.sm }]}>
           <StatItem value={stats.total} label={t('profile.memories')} emoji="🗺️" theme={theme} />
           <View style={[styles.statDivider, { backgroundColor: theme.colors.border }]} />
-          <StatItem value={stats.locations} label={t('profile.locations')} emoji="📍" theme={theme} />
+          <TouchableOpacity style={statStyles.item} onPress={() => setStatModal('locations')} activeOpacity={0.7}>
+            <Text style={[statStyles.value, { color: theme.colors.primary }]}>{stats.locations}</Text>
+            <Text style={[statStyles.label, { color: theme.colors.secondary }]}>
+              {t('profile.locations')} ›
+            </Text>
+          </TouchableOpacity>
           <View style={[styles.statDivider, { backgroundColor: theme.colors.border }]} />
-          <StatItem value={stats.thisMonth} label={t('profile.thisMonth')} emoji="📅" theme={theme} />
+          <TouchableOpacity style={statStyles.item} onPress={() => setStatModal('thisMonth')} activeOpacity={0.7}>
+            <Text style={[statStyles.value, { color: theme.colors.primary }]}>{stats.thisMonth}</Text>
+            <Text style={[statStyles.label, { color: theme.colors.secondary }]}>
+              {t('profile.thisMonth')} ›
+            </Text>
+          </TouchableOpacity>
         </View>
 
         {/* Memories grid/list */}
@@ -374,6 +506,17 @@ export default function ProfileScreen({ navigation }) {
         </View>
       </ScrollView>
 
+      {/* Modal thống kê chi tiết */}
+      <StatModal
+        visible={statModal !== null}
+        type={statModal}
+        memories={statModal === 'locations' ? locationMemories : thisMonthMemories}
+        onClose={() => setStatModal(null)}
+        onPressMemory={(m) => navigation.navigate('MemoryDetail', { memory: m })}
+        theme={theme}
+        t={t}
+      />
+
       {/* Modal chỉnh sửa */}
       <EditProfileModal
         user={user}
@@ -423,46 +566,50 @@ function makeStyles(theme) {
     container: { flex: 1 },
     profileHeader: {
       alignItems: 'center', paddingHorizontal: 20, paddingTop: 24, paddingBottom: 20, marginBottom: 12,
+      borderBottomWidth: 1, borderBottomColor: theme.colors.border,
     },
-    avatarContainer: { position: 'relative', marginBottom: 12 },
-    avatar: { width: 90, height: 90, borderRadius: 45, borderWidth: 3, borderColor: theme.colors.primary },
+    avatarContainer: { position: 'relative', marginBottom: 14 },
+    avatar: {
+      width: 96, height: 96, borderRadius: 48,
+      borderWidth: 3.5, borderColor: theme.colors.primary,
+    },
     avatarPlaceholder: {
-      width: 90, height: 90, borderRadius: 45,
+      width: 96, height: 96, borderRadius: 48,
       alignItems: 'center', justifyContent: 'center',
     },
-    avatarText: { fontSize: 36, color: '#fff', fontWeight: '700' },
+    avatarText: { fontSize: 38, color: '#fff', fontWeight: '800' },
     editAvatarBadge: {
       position: 'absolute', bottom: 0, right: 0,
-      width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center',
-      borderWidth: 1.5, borderColor: theme.colors.border,
+      width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center',
+      borderWidth: 2, borderColor: theme.colors.border,
     },
-    userName: { fontSize: 20, fontWeight: '800', marginBottom: 4 },
-    userEmail: { fontSize: 13, marginBottom: 6 },
-    userBio: { fontSize: 14, textAlign: 'center', lineHeight: 20, marginBottom: 6 },
-    joinedText: { fontSize: 12, marginBottom: 16 },
-    actionRow: { flexDirection: 'row', gap: 10, alignItems: 'center' },
-    editBtn: { paddingHorizontal: 20, paddingVertical: 9, borderRadius: 20 },
-    editBtnText: { color: '#fff', fontSize: 13, fontWeight: '600' },
-    settingsBtn: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
-    logoutBtn: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
-    logoutBtnText: { fontSize: 16 },
+    userName:   { fontSize: 22, fontWeight: '800', marginBottom: 4 },
+    userEmail:  { fontSize: 13, marginBottom: 6 },
+    userBio:    { fontSize: 14, textAlign: 'center', lineHeight: 20, marginBottom: 6, paddingHorizontal: 16 },
+    joinedText: { fontSize: 12, marginBottom: 18 },
+    actionRow:  { flexDirection: 'row', gap: 10, alignItems: 'center' },
+    editBtn:    { paddingHorizontal: 22, paddingVertical: 10, borderRadius: 24 },
+    editBtnText:{ color: '#fff', fontSize: 13, fontWeight: '700' },
+    settingsBtn:{ width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+    logoutBtn:  { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+    logoutBtnText: { fontSize: 17 },
     statsCard: {
-      flexDirection: 'row', marginHorizontal: 16, marginBottom: 12,
-      borderRadius: 16, paddingVertical: 16,
+      flexDirection: 'row', marginHorizontal: 16, marginBottom: 14,
+      borderRadius: 20, paddingVertical: 16,
     },
     statDivider: { width: 1, marginVertical: 4 },
     memoriesSection: { paddingHorizontal: 16, paddingBottom: 32 },
     memoriesHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
-    memoriesTitle: { fontSize: 17, fontWeight: '700' },
+    memoriesTitle: { fontSize: 17, fontWeight: '800' },
     viewToggle: { flexDirection: 'row', gap: 12 },
     viewToggleBtn: { fontSize: 22, color: '#999' },
     grid: { flexDirection: 'row', flexWrap: 'wrap' },
     emptyGrid: { alignItems: 'center', paddingVertical: 40, gap: 8 },
     emptyText: { fontSize: 14 },
-    listItem: { flexDirection: 'row', borderRadius: 12, borderWidth: 1, marginBottom: 8, overflow: 'hidden' },
+    listItem: { flexDirection: 'row', borderRadius: 14, borderWidth: 1, marginBottom: 8, overflow: 'hidden' },
     listThumb: { width: 72, height: 72 },
     listInfo: { flex: 1, padding: 10, justifyContent: 'center', gap: 3 },
-    listTitle: { fontSize: 14, fontWeight: '600' },
+    listTitle: { fontSize: 14, fontWeight: '700' },
     listDate: { fontSize: 11 },
     listLocation: { fontSize: 11 },
   });

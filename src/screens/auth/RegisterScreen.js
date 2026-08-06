@@ -8,10 +8,90 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
 import { useApp } from '../../context/AppContext';
 import AppLogo from '../../components/AppLogo';
+import { sendOTP } from '../../services/otpService';
+import { ACCENT_PRESETS } from '../../theme';
+
+// ===== COLOR PICKER inline =====
+function AccentColorPicker({ accentColor, setAccentColor, theme }) {
+  const active = ACCENT_PRESETS.find(p => p.id === accentColor);
+  return (
+    <View style={cpStyles.wrap}>
+      {/* Header */}
+      <View style={cpStyles.header}>
+        <Text style={[cpStyles.title, { color: theme.colors.text }]}>🎨 Chọn màu giao diện</Text>
+        <View style={[cpStyles.preview, { backgroundColor: active?.primary }]}>
+          <Text style={cpStyles.previewText}>{active?.label}</Text>
+        </View>
+      </View>
+
+      {/* Palette grid */}
+      <View style={cpStyles.grid}>
+        {ACCENT_PRESETS.map(preset => {
+          const isActive = accentColor === preset.id;
+          return (
+            <TouchableOpacity
+              key={preset.id}
+              onPress={() => setAccentColor(preset.id)}
+              activeOpacity={0.82}
+              style={[
+                cpStyles.swatch,
+                { backgroundColor: preset.primary },
+                isActive && {
+                  shadowColor: preset.primary,
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.55,
+                  shadowRadius: 8,
+                  elevation: 10,
+                  transform: [{ scale: 1.13 }],
+                },
+              ]}
+            >
+              {isActive && (
+                <View style={cpStyles.checkCircle}>
+                  <Text style={cpStyles.checkText}>✓</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
+const cpStyles = StyleSheet.create({
+  wrap:   { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12 },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
+  title:  { fontSize: 14, fontWeight: '800' },
+  preview:{
+    paddingHorizontal: 12, paddingVertical: 5,
+    borderRadius: 20,
+  },
+  previewText: { color: '#fff', fontSize: 11, fontWeight: '800' },
+
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 10,
+  },
+  swatch: {
+    width: 44, height: 44,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkCircle: {
+    width: 22, height: 22, borderRadius: 11,
+    backgroundColor: 'rgba(255,255,255,0.35)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  checkText: { color: '#fff', fontSize: 13, fontWeight: '900' },
+});
 
 export default function RegisterScreen({ navigation }) {
-  const { register } = useAuth();
-  const { theme, t } = useApp();
+  const { register, checkEmailAvailable } = useAuth();
+  const { theme, t, accentColor, setAccentColor } = useApp();
 
   const [form, setForm] = useState({ fullName: '', email: '', password: '', confirmPassword: '', phonenumber: '', gender: '' });
   const [showPwd, setShowPwd] = useState(false);
@@ -50,7 +130,20 @@ export default function RegisterScreen({ navigation }) {
     if (!validate()) return;
     setIsLoading(true);
     try {
-      await register({ ...form, email: form.email.trim(), fullName: form.fullName.trim() });
+      // Bước 1: Kiểm tra email chưa được đăng ký
+      await checkEmailAvailable(form.email.trim());
+
+      // Bước 2: Gửi OTP
+      const result = await sendOTP(form.email.trim(), form.fullName.trim(), 'register');
+
+      // Bước 3: Chuyển sang màn hình OTP
+      navigation.navigate('OTP', {
+        email: form.email.trim(),
+        fullName: form.fullName.trim(),
+        purpose: 'register',
+        formData: { ...form, email: form.email.trim(), fullName: form.fullName.trim() },
+        devOTP: result.otp || '',
+      });
     } catch (error) {
       Alert.alert(t('common.error'), error.message || t('auth.errorRegisterFailed'));
     } finally {
@@ -68,6 +161,7 @@ export default function RegisterScreen({ navigation }) {
           <View style={styles.header}>
             <AppLogo size={72} showName={false} />
             <Text style={styles.appName}>MemoryMap</Text>
+            <Text style={styles.tagline}>🌸 Bắt đầu hành trình kỷ niệm</Text>
             <Text style={styles.title}>{t('auth.createAccount')}</Text>
             <Text style={styles.subtitle}>{t('auth.createSubtitle')}</Text>
           </View>
@@ -89,6 +183,29 @@ export default function RegisterScreen({ navigation }) {
                 />
               </View>
               {errors.fullName ? <Text style={styles.errorText}>⚠️ {errors.fullName}</Text> : null}
+            </View>
+
+            {/* Màu chủ đạo */}
+            <View style={[styles.fieldGroup, { backgroundColor: theme.colors.highlight, borderRadius: 16 }]}>
+              <AccentColorPicker
+                accentColor={accentColor}
+                setAccentColor={setAccentColor}
+                theme={theme}
+              />
+              {/* Nút Cập nhật */}
+              <TouchableOpacity
+                style={[styles.updateColorBtn, { backgroundColor: theme.colors.primary }]}
+                onPress={() =>
+                  Alert.alert(
+                    '🎨 Cập nhật giao diện',
+                    `Màu "${ACCENT_PRESETS.find(p => p.id === accentColor)?.label}" đã được áp dụng cho toàn bộ ứng dụng!`,
+                    [{ text: 'Tuyệt 👍' }]
+                  )
+                }
+                activeOpacity={0.85}
+              >
+                <Text style={styles.updateColorBtnText}>✓ Cập nhật màu giao diện</Text>
+              </TouchableOpacity>
             </View>
 
             {/* Email */}
@@ -210,8 +327,7 @@ export default function RegisterScreen({ navigation }) {
                 <ActivityIndicator color="#fff" size="small" />
               ) : (
                 <Text style={styles.registerBtnText}>{t('auth.register')}</Text>
-              )}
-            </TouchableOpacity>
+              )}            </TouchableOpacity>
 
             {/* Link đăng nhập */}
             <View style={styles.loginRow}>
@@ -236,17 +352,18 @@ function makeStyles(theme) {
     container: { flex: 1, backgroundColor: theme.colors.background },
     flex: { flex: 1 },
     scrollContent: { flexGrow: 1, paddingHorizontal: 24, paddingBottom: 40 },
-    header: { alignItems: 'center', paddingTop: 28, paddingBottom: 20 },
-    appName: { fontSize: 22, fontWeight: '800', color: theme.colors.primary, marginTop: 8, marginBottom: 10, letterSpacing: 0.5 },
-    title: { fontSize: 20, fontWeight: '700', color: theme.colors.text, marginBottom: 6 },
+    header: { alignItems: 'center', paddingTop: 26, paddingBottom: 18 },
+    appName: { fontSize: 24, fontWeight: '800', color: theme.colors.primary, marginTop: 8, marginBottom: 4, letterSpacing: 1 },
+    tagline: { fontSize: 12, color: theme.colors.secondary, fontWeight: '600', marginBottom: 10 },
+    title: { fontSize: 20, fontWeight: '800', color: theme.colors.text, marginBottom: 4 },
     subtitle: { fontSize: 13, color: theme.colors.textSecondary, textAlign: 'center', lineHeight: 19 },
     form: { gap: 2 },
     fieldGroup: { marginBottom: 14 },
-    label: { fontSize: 14, fontWeight: '600', color: theme.colors.text, marginBottom: 6 },
+    label: { fontSize: 14, fontWeight: '700', color: theme.colors.text, marginBottom: 6 },
     inputWrapper: {
       flexDirection: 'row', alignItems: 'center',
       backgroundColor: theme.colors.inputBackground,
-      borderRadius: 12, borderWidth: 1.5,
+      borderRadius: 16, borderWidth: 1.5,
       borderColor: theme.colors.inputBorder,
       paddingHorizontal: 14, height: 52,
     },
@@ -256,18 +373,25 @@ function makeStyles(theme) {
     eyeBtn: { padding: 4 },
     errorText: { fontSize: 12, color: theme.colors.error, marginTop: 4, marginLeft: 2 },
     registerBtn: {
-      height: 52, borderRadius: 14, alignItems: 'center',
+      height: 54, borderRadius: 27, alignItems: 'center',
       justifyContent: 'center', marginTop: 8,
-      shadowColor: '#1A6FD4', shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.35, shadowRadius: 10, elevation: 5,
+      shadowColor: '#7C5CBF', shadowOffset: { width: 0, height: 5 },
+      shadowOpacity: 0.4, shadowRadius: 12, elevation: 6,
     },
-    btnDisabled: { opacity: 0.7 },
-    registerBtnText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
-    loginRow: { flexDirection: 'row', justifyContent: 'center', marginTop: 18 },
+    btnDisabled: { opacity: 0.65 },
+    registerBtnText: { color: '#FFFFFF', fontSize: 16, fontWeight: '800', letterSpacing: 0.5 },
+    loginRow: { flexDirection: 'row', justifyContent: 'center', marginTop: 20 },
     loginText: { fontSize: 14 },
-    loginLink: { fontSize: 14, fontWeight: '700' },
-    // Giới tính
-    genderBtn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1.5 },
+    loginLink: { fontSize: 14, fontWeight: '800' },
+    genderBtn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 22, borderWidth: 1.5 },
     genderBtnText: { fontSize: 13 },
+    updateColorBtn: {
+      marginHorizontal: 14, marginBottom: 14, marginTop: 4,
+      height: 44, borderRadius: 22,
+      alignItems: 'center', justifyContent: 'center',
+      shadowColor: '#000', shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.2, shadowRadius: 6, elevation: 4,
+    },
+    updateColorBtnText: { color: '#fff', fontSize: 14, fontWeight: '800', letterSpacing: 0.3 },
   });
 }

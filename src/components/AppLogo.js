@@ -1,184 +1,162 @@
-// src/components/AppLogo.js - Logo MemoryMap: Quả địa cầu + Ghim + Ngôi sao
+// src/components/AppLogo.js - Logo MemoryMap: Camera icon 📷
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 
-/**
- * Logo MemoryMap:
- *  - Quả địa cầu xanh dương (vòng tròn + đường kinh tuyến/vĩ tuyến)
- *  - Ghim vị trí trắng ở tâm
- *  - Ngôi sao vàng nhỏ = kỷ niệm
- *  - Chấm sóng biển trang trí
- */
-export default function AppLogo({ size = 80, showName = false, nameColor = '#1A6FD4' }) {
-  const r = size / 2;  // bán kính
+export default function AppLogo({ size = 80, showName = false, nameColor = '#7C5CBF' }) {
+  const r = size / 2;
+  const bodyH = size * 0.58;
+  const bodyW = size * 0.92;
+  const bodyY = size * 0.28;
+  const lensR = size * 0.22;
+  const humpW = size * 0.32;
+  const humpH = size * 0.18;
 
   return (
     <View style={styles.wrapper}>
-      {/* ===== VỎ NGOÀI - hiệu ứng shadow vòng ===== */}
+      {/* Vầng sáng ngoài */}
       <View style={{
-        width: size + size * 0.1,
-        height: size + size * 0.1,
-        borderRadius: (size + size * 0.1) / 2,
-        backgroundColor: 'rgba(26,111,212,0.15)',
+        width: size + size * 0.22,
+        height: size + size * 0.22,
+        borderRadius: (size + size * 0.22) / 2,
+        backgroundColor: 'rgba(240,98,146,0.12)',
         alignItems: 'center',
         justifyContent: 'center',
       }}>
-
-        {/* ===== QUẢ ĐỊA CẦU CHÍNH ===== */}
+        {/* Vầng sáng giữa */}
         <View style={{
-          width: size,
-          height: size,
-          borderRadius: r,
-          backgroundColor: '#1A6FD4',
+          width: size + size * 0.08,
+          height: size + size * 0.08,
+          borderRadius: (size + size * 0.08) / 2,
+          backgroundColor: 'rgba(124,92,191,0.14)',
           alignItems: 'center',
           justifyContent: 'center',
-          overflow: 'hidden',
-          shadowColor: '#0D4FA0',
-          shadowOffset: { width: 0, height: size * 0.06 },
-          shadowOpacity: 0.5,
-          shadowRadius: size * 0.12,
-          elevation: 12,
         }}>
 
-          {/* ── Phần biển (nền) ── đã là màu nền */}
-
-          {/* ── Mảng đất liền trái ── */}
+          {/* Quả cầu chính */}
           <View style={{
-            position: 'absolute',
-            top: size * 0.18,
-            left: size * 0.06,
-            width: size * 0.28,
-            height: size * 0.32,
-            borderRadius: size * 0.09,
-            backgroundColor: '#4B96F3',
-            transform: [{ rotate: '15deg' }],
-          }} />
+            width: size,
+            height: size,
+            borderRadius: r,
+            backgroundColor: '#7C5CBF',
+            alignItems: 'center',
+            justifyContent: 'center',
+            overflow: 'hidden',
+            shadowColor: '#5A3D9A',
+            shadowOffset: { width: 0, height: size * 0.07 },
+            shadowOpacity: 0.55,
+            shadowRadius: size * 0.14,
+            elevation: 14,
+          }}>
 
-          {/* ── Mảng đất liền phải ── */}
-          <View style={{
-            position: 'absolute',
-            top: size * 0.22,
-            right: size * 0.08,
-            width: size * 0.24,
-            height: size * 0.28,
-            borderRadius: size * 0.08,
-            backgroundColor: '#4B96F3',
-            transform: [{ rotate: '-10deg' }],
-          }} />
-
-          {/* ── Mảng đất liền dưới ── */}
-          <View style={{
-            position: 'absolute',
-            bottom: size * 0.14,
-            left: size * 0.28,
-            width: size * 0.36,
-            height: size * 0.2,
-            borderRadius: size * 0.07,
-            backgroundColor: '#4B96F3',
-          }} />
-
-          {/* ── Đường xích đạo ngang ── */}
-          <View style={{
-            position: 'absolute',
-            top: r - size * 0.015,
-            left: size * 0.04,
-            right: size * 0.04,
-            height: size * 0.03,
-            backgroundColor: 'rgba(255,255,255,0.25)',
-            borderRadius: 2,
-          }} />
-
-          {/* ── Đường kinh tuyến đứng ── */}
-          <View style={{
-            position: 'absolute',
-            left: r - size * 0.015,
-            top: size * 0.04,
-            bottom: size * 0.04,
-            width: size * 0.03,
-            backgroundColor: 'rgba(255,255,255,0.25)',
-            borderRadius: 2,
-          }} />
-
-          {/* ── Viền ngoài sáng (highlight) ── */}
-          <View style={{
-            position: 'absolute',
-            top: size * 0.05,
-            left: size * 0.1,
-            width: size * 0.35,
-            height: size * 0.18,
-            borderRadius: size * 0.09,
-            backgroundColor: 'rgba(255,255,255,0.2)',
-            transform: [{ rotate: '-20deg' }],
-          }} />
-
-          {/* ===== GHIM VỊ TRÍ Ở TRUNG TÂM ===== */}
-          <View style={{ alignItems: 'center', justifyContent: 'center' }}>
-            {/* Đầu ghim */}
+            {/* Gradient overlay nửa dưới hồng */}
             <View style={{
-              width: size * 0.3,
-              height: size * 0.3,
-              borderRadius: size * 0.15,
-              backgroundColor: '#FFFFFF',
-              alignItems: 'center',
-              justifyContent: 'center',
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: 1 },
-              shadowOpacity: 0.2,
-              shadowRadius: 2,
-              elevation: 3,
+              position: 'absolute',
+              bottom: 0, left: 0, right: 0,
+              height: size * 0.5,
+              backgroundColor: '#F06292',
+              borderTopLeftRadius: size * 0.8,
+              borderTopRightRadius: size * 0.5,
+              opacity: 0.35,
+            }} />
+
+            {/* Highlight sáng góc trên trái */}
+            <View style={{
+              position: 'absolute',
+              top: size * 0.06,
+              left: size * 0.08,
+              width: size * 0.35,
+              height: size * 0.14,
+              borderRadius: size * 0.1,
+              backgroundColor: 'rgba(255,255,255,0.22)',
+              transform: [{ rotate: '-20deg' }],
+            }} />
+
+            {/* ===== CAMERA BODY ===== */}
+            {/* Bướu nhỏ trên thân máy (viewfinder hump) */}
+            <View style={{
+              position: 'absolute',
+              top: bodyY - humpH * 0.75,
+              left: r - humpW / 2,
+              width: humpW,
+              height: humpH,
+              backgroundColor: 'rgba(255,255,255,0.92)',
+              borderTopLeftRadius: humpH * 0.6,
+              borderTopRightRadius: humpH * 0.6,
+            }} />
+
+            {/* Thân máy ảnh */}
+            <View style={{
+              position: 'absolute',
+              top: bodyY,
+              left: (size - bodyW) / 2,
+              width: bodyW,
+              height: bodyH,
+              backgroundColor: 'rgba(255,255,255,0.92)',
+              borderRadius: size * 0.1,
             }}>
-              {/* Lỗ tâm ghim */}
+
+              {/* Ống kính ngoài */}
               <View style={{
-                width: size * 0.12,
-                height: size * 0.12,
-                borderRadius: size * 0.06,
-                backgroundColor: '#1A6FD4',
+                position: 'absolute',
+                top: bodyH / 2 - lensR,
+                left: bodyW / 2 - lensR,
+                width: lensR * 2,
+                height: lensR * 2,
+                borderRadius: lensR,
+                backgroundColor: '#7C5CBF',
+                alignItems: 'center',
+                justifyContent: 'center',
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.25,
+                shadowRadius: 3,
+                elevation: 4,
+              }}>
+                {/* Ống kính giữa */}
+                <View style={{
+                  width: lensR * 1.3,
+                  height: lensR * 1.3,
+                  borderRadius: lensR * 0.65,
+                  backgroundColor: '#3D2080',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}>
+                  {/* Phản chiếu sáng */}
+                  <View style={{
+                    position: 'absolute',
+                    top: lensR * 0.18,
+                    left: lensR * 0.18,
+                    width: lensR * 0.42,
+                    height: lensR * 0.42,
+                    borderRadius: lensR * 0.21,
+                    backgroundColor: 'rgba(255,255,255,0.45)',
+                  }} />
+                </View>
+              </View>
+
+              {/* Flash dot góc trên phải thân máy */}
+              <View style={{
+                position: 'absolute',
+                top: bodyH * 0.12,
+                right: bodyW * 0.12,
+                width: size * 0.07,
+                height: size * 0.07,
+                borderRadius: size * 0.035,
+                backgroundColor: '#FFD700',
               }} />
             </View>
-            {/* Đuôi ghim tam giác */}
-            <View style={{
-              width: 0,
-              height: 0,
-              borderLeftWidth: size * 0.09,
-              borderRightWidth: size * 0.09,
-              borderTopWidth: size * 0.14,
-              borderLeftColor: 'transparent',
-              borderRightColor: 'transparent',
-              borderTopColor: '#FFFFFF',
-              marginTop: -1,
-            }} />
+
+            {/* Ngôi sao sparkle góc trên phải vòng cầu */}
+            <View style={{ position: 'absolute', top: size * 0.06, right: size * 0.08 }}>
+              <Text style={{ fontSize: size * 0.15, color: '#FFD700' }}>✦</Text>
+            </View>
+
+            {/* Trái tim nhỏ góc dưới trái */}
+            <View style={{ position: 'absolute', bottom: size * 0.06, left: size * 0.09 }}>
+              <Text style={{ fontSize: size * 0.13, color: 'rgba(255,255,255,0.65)' }}>♡</Text>
+            </View>
+
           </View>
-
-          {/* ── Ngôi sao vàng góc trên phải ── */}
-          <View style={{
-            position: 'absolute',
-            top: size * 0.07,
-            right: size * 0.09,
-          }}>
-            <Text style={{ fontSize: size * 0.17, color: '#FFD700' }}>★</Text>
-          </View>
-
-          {/* ── Chấm trang trí góc dưới trái ── */}
-          <View style={{
-            position: 'absolute',
-            bottom: size * 0.12,
-            left: size * 0.1,
-            width: size * 0.06,
-            height: size * 0.06,
-            borderRadius: size * 0.03,
-            backgroundColor: 'rgba(255,255,255,0.45)',
-          }} />
-
-          {/* ── Chấm nhỏ hơn ── */}
-          <View style={{
-            position: 'absolute',
-            bottom: size * 0.22,
-            left: size * 0.07,
-            width: size * 0.04,
-            height: size * 0.04,
-            borderRadius: size * 0.02,
-            backgroundColor: 'rgba(255,255,255,0.3)',
-          }} />
         </View>
       </View>
 
@@ -193,6 +171,6 @@ export default function AppLogo({ size = 80, showName = false, nameColor = '#1A6
 }
 
 const styles = StyleSheet.create({
-  wrapper:  { alignItems: 'center', gap: 8 },
-  appName:  { fontWeight: '800', letterSpacing: 0.8 },
+  wrapper: { alignItems: 'center', gap: 8 },
+  appName: { fontWeight: '800', letterSpacing: 1 },
 });

@@ -126,7 +126,7 @@ export default function MemoryDetailScreen({ route, navigation }) {
       const parts = [`📍 ${memory.title}`];
       if (memory.location?.address) parts.push(`🗺️ ${memory.location.address}`);
       if (memory.description) parts.push(`\n${memory.description}`);
-      parts.push('\n— Chia sẻ từ MemoryMap');
+      parts.push(`\n${t('memoryDetail.shareMessage')}`);
       await Share.share({ message: parts.join('\n') });
     } catch (err) {
       if (err.message !== 'User did not share') {
@@ -321,7 +321,7 @@ export default function MemoryDetailScreen({ route, navigation }) {
           {/* AI Caption */}
           {memory.aiCaption && memory.aiCaption !== memory.description ? (
             <View style={[styles.aiSection, { backgroundColor: theme.colors.highlight, borderColor: theme.colors.primary }]}>
-              <Text style={[styles.aiLabel, { color: theme.colors.primary }]}>✨ AI Caption</Text>
+              <Text style={[styles.aiLabel, { color: theme.colors.primary }]}>{t('memoryDetail.aiCaptionLabel')}</Text>
               <Text style={[styles.aiText, { color: theme.colors.text }]}>{memory.aiCaption}</Text>
             </View>
           ) : null}
@@ -346,7 +346,7 @@ export default function MemoryDetailScreen({ route, navigation }) {
           {memory.taggedUsers?.length > 0 ? (
             <View style={styles.tagsSection}>
               <Text style={[styles.sectionLabel, { color: theme.colors.textSecondary }]}>
-                👥 Người được gắn thẻ
+                {t('memoryDetail.taggedUsersLabel')}
               </Text>
               <View style={styles.tagsRow}>
                 {memory.taggedUsers.map((u) => (
@@ -361,28 +361,41 @@ export default function MemoryDetailScreen({ route, navigation }) {
 
           {/* Privacy */}
           <View style={[styles.privacyRow, {
-            backgroundColor: memory.privacy === 'public' ? '#22c55e18' : '#64748b18',
-            borderColor: memory.privacy === 'public' ? '#22c55e' : '#94a3b8',
+            backgroundColor: memory.privacy === 'public' ? '#f0fdf4' : theme.colors.surface,
+            borderColor: memory.privacy === 'public' ? '#86efac' : theme.colors.border,
           }]}>
-            <Text style={{ fontSize: 20 }}>{memory.privacy === 'public' ? '🌐' : '🔒'}</Text>
+            {/* Icon + label */}
+            <View style={[styles.privacyIconWrap, {
+              backgroundColor: memory.privacy === 'public' ? '#dcfce7' : '#f1f5f9',
+            }]}>
+              <Text style={{ fontSize: 18 }}>
+                {memory.privacy === 'public' ? '🌐' : '🔒'}
+              </Text>
+            </View>
             <View style={{ flex: 1 }}>
-              <Text style={[styles.privacyLabel, { color: memory.privacy === 'public' ? '#16a34a' : '#475569' }]}>
-                {memory.privacy === 'public' ? 'Công khai' : 'Chỉ mình tôi'}
+              <Text style={[styles.privacyLabel, {
+                color: memory.privacy === 'public' ? '#16a34a' : '#334155',
+              }]}>
+                {memory.privacy === 'public' ? t('privacy.public') : t('privacy.onlyMe')}
               </Text>
               <Text style={[styles.privacyDesc, { color: theme.colors.textTertiary }]}>
-                {memory.privacy === 'public' ? 'Mọi người đều xem được' : 'Chỉ bạn mới thấy kỷ niệm này'}
+                {memory.privacy === 'public' ? t('privacy.publicDesc') : t('privacy.privateDesc')}
               </Text>
             </View>
             {isOwner && (
               <TouchableOpacity
                 style={[styles.togglePrivacyBtn, {
-                  backgroundColor: memory.privacy === 'public' ? '#64748b20' : '#22c55e20',
-                  borderColor: memory.privacy === 'public' ? '#94a3b8' : '#22c55e',
+                  backgroundColor: memory.privacy === 'public' ? '#fef2f2' : '#f0fdf4',
+                  borderColor: memory.privacy === 'public' ? '#fca5a5' : '#86efac',
                 }]}
                 onPress={handleTogglePrivacy}
               >
-                <Text style={[{ fontSize: 11, fontWeight: '700', color: memory.privacy === 'public' ? '#475569' : '#16a34a' }]}>
-                  {memory.privacy === 'public' ? '🔒 Đặt riêng tư' : '🌐 Công khai'}
+                <Text style={{
+                  fontSize: 10,
+                  fontWeight: '700',
+                  color: memory.privacy === 'public' ? '#dc2626' : '#16a34a',
+                }}>
+                  {memory.privacy === 'public' ? t('privacy.switchToPrivate') : t('privacy.switchToPublic')}
                 </Text>
               </TouchableOpacity>
             )}
@@ -452,6 +465,10 @@ function makeStyles(theme) {
     privacyRow: {
       flexDirection: 'row', alignItems: 'center', gap: 12,
       borderRadius: 14, borderWidth: 1.5, padding: 14,
+    },
+    privacyIconWrap: {
+      width: 40, height: 40, borderRadius: 20,
+      alignItems: 'center', justifyContent: 'center',
     },
     privacyLabel: { fontSize: 14, fontWeight: '700', marginBottom: 2 },
     privacyDesc: { fontSize: 12 },

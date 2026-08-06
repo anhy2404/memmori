@@ -11,14 +11,16 @@ import AppLogo from '../components/AppLogo';
 // Auth screens
 import LoginScreen from '../screens/auth/LoginScreen';
 import RegisterScreen from '../screens/auth/RegisterScreen';
+import OTPScreen from '../screens/auth/OTPScreen';
 
 // Main screens
 import HomeScreen from '../screens/main/HomeScreen';
-import MapScreen from '../screens/main/MapScreen';
 import CreateScreen from '../screens/main/CreateScreen';
 import DiscoverScreen from '../screens/main/DiscoverScreen';
 import AIChatScreen from '../screens/main/AIChatScreen';
 import ProfileScreen from '../screens/main/ProfileScreen';
+import FriendsScreen from '../screens/main/FriendsScreen';
+import MapScreen from '../screens/main/MapScreen';
 
 // Settings
 import SettingsScreen from '../screens/settings/SettingsScreen';
@@ -29,16 +31,35 @@ import MemoryDetailScreen from '../screens/main/MemoryDetailScreen';
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
-// ===== CREATE BUTTON (nút + ở giữa tab) =====
+// ===== CREATE BUTTON (nằm cùng hàng, icon camera, màu theo theme) =====
 function CreateTabButton({ children, onPress, theme }) {
   return (
     <TouchableOpacity
-      style={[styles.createButton, { backgroundColor: theme.colors.primary }]}
       onPress={onPress}
       activeOpacity={0.8}
+      style={styles.createButtonWrapper}
     >
-      <Text style={styles.createButtonText}>+</Text>
+      <View style={[styles.createButton, {
+        backgroundColor: theme.colors.primary,
+        shadowColor: theme.colors.primary,
+      }]}>
+        <Text style={styles.createButtonIcon}>📷</Text>
+      </View>
+      <Text style={[styles.createButtonLabel, { color: theme.colors.tabBarActive }]}>
+        Tạo mới
+      </Text>
     </TouchableOpacity>
+  );
+}
+
+// ===== TAB ICON =====
+function TabIcon({ emoji, focused, color }) {
+  return (
+    <View style={[styles.tabIconWrap, focused && { backgroundColor: color + '18', borderRadius: 12 }]}>
+      <Text style={{ fontSize: focused ? 21 : 18, opacity: focused ? 1 : 0.45 }}>
+        {emoji}
+      </Text>
+    </View>
   );
 }
 
@@ -52,46 +73,52 @@ function MainTabs() {
         headerShown: false,
         tabBarStyle: {
           backgroundColor: theme.colors.tabBar,
-          borderTopColor: theme.colors.tabBarBorder,
           borderTopWidth: 1,
-          height: Platform.OS === 'ios' ? 85 : 65,
+          borderTopColor: theme.colors.tabBarBorder,
+          height: Platform.OS === 'ios' ? 82 : 64,
           paddingBottom: Platform.OS === 'ios' ? 20 : 8,
-          paddingTop: 8,
-          elevation: 8,
+          paddingTop: 6,
+          elevation: 16,
           shadowColor: '#000',
           shadowOffset: { width: 0, height: -2 },
-          shadowOpacity: 0.1,
-          shadowRadius: 4,
+          shadowOpacity: 0.08,
+          shadowRadius: 8,
         },
         tabBarActiveTintColor: theme.colors.tabBarActive,
         tabBarInactiveTintColor: theme.colors.tabBarInactive,
         tabBarLabelStyle: {
           fontSize: 10,
-          fontWeight: '500',
-          marginTop: -2,
+          fontWeight: '700',
+          letterSpacing: 0.1,
+          marginTop: 1,
         },
       }}
     >
+      {/* 🏠 Trang chủ */}
       <Tab.Screen
         name="Home"
         component={HomeScreen}
         options={{
           tabBarLabel: t('nav.home'),
           tabBarIcon: ({ focused, color }) => (
-            <Text style={{ fontSize: focused ? 23 : 20, opacity: focused ? 1 : 0.55 }}>🏠</Text>
+            <TabIcon emoji="🏠" focused={focused} color={color} />
           ),
         }}
       />
+
+      {/* 🔍 Khám phá */}
       <Tab.Screen
-        name="Map"
-        component={MapScreen}
+        name="Discover"
+        component={DiscoverScreen}
         options={{
-          tabBarLabel: t('nav.map'),
-          tabBarIcon: ({ focused }) => (
-            <Text style={{ fontSize: focused ? 23 : 20, opacity: focused ? 1 : 0.55 }}>🗺️</Text>
+          tabBarLabel: t('nav.discover'),
+          tabBarIcon: ({ focused, color }) => (
+            <TabIcon emoji="🔍" focused={focused} color={color} />
           ),
         }}
       />
+
+      {/* 📷 Tạo mới — chính giữa */}
       <Tab.Screen
         name="Create"
         component={CreateScreen}
@@ -102,23 +129,27 @@ function MainTabs() {
           ),
         }}
       />
+
+      {/* 🤝 Bạn bè */}
       <Tab.Screen
-        name="Discover"
-        component={DiscoverScreen}
+        name="Friends"
+        component={FriendsScreen}
         options={{
-          tabBarLabel: t('nav.discover'),
-          tabBarIcon: ({ focused }) => (
-            <Text style={{ fontSize: focused ? 23 : 20, opacity: focused ? 1 : 0.55 }}>🔍</Text>
+          tabBarLabel: t('nav.friends'),
+          tabBarIcon: ({ focused, color }) => (
+            <TabIcon emoji="🤝" focused={focused} color={color} />
           ),
         }}
       />
+
+      {/* 👤 Tôi */}
       <Tab.Screen
         name="Profile"
         component={ProfileScreen}
         options={{
           tabBarLabel: t('nav.profile'),
-          tabBarIcon: ({ focused }) => (
-            <Text style={{ fontSize: focused ? 23 : 20, opacity: focused ? 1 : 0.55 }}>👤</Text>
+          tabBarIcon: ({ focused, color }) => (
+            <TabIcon emoji="👤" focused={focused} color={color} />
           ),
         }}
       />
@@ -140,6 +171,7 @@ function AuthStack() {
     >
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="Register" component={RegisterScreen} />
+      <Stack.Screen name="OTP" component={OTPScreen} />
     </Stack.Navigator>
   );
 }
@@ -214,43 +246,34 @@ export default function AppNavigator() {
 
 const styles = StyleSheet.create({
   loadingContainer: {
+    flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12,
+  },
+  loadingText: { fontSize: 24, fontWeight: '700' },
+
+  // Tab icon thường
+  tabIconWrap: {
+    width: 36, height: 28,
+    alignItems: 'center', justifyContent: 'center',
+    paddingHorizontal: 8, paddingVertical: 3,
+  },
+  tabDot: { width: 4, height: 4, borderRadius: 2, marginTop: 2 },
+
+  // Nút tạo mới — cùng hàng, hình tròn + label
+  createButtonWrapper: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 12,
-  },
-  loadingText: {
-    fontSize: 24,
-    fontWeight: '700',
-  },
-  tabIconContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 4,
-    borderRadius: 12,
-  },
-  tabIconActive: {
-    // Có thể thêm background highlight
+    paddingTop: 4,
+    gap: 3,
   },
   createButton: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 18,
-    shadowColor: '#1A6FD4',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.45,
-    shadowRadius: 10,
-    elevation: 10,
-    top: -12,
+    width: 44, height: 44, borderRadius: 22,
+    alignItems: 'center', justifyContent: 'center',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 8,
   },
-  createButtonText: {
-    color: '#FFFFFF',
-    fontSize: 28,
-    fontWeight: '300',
-    lineHeight: 32,
-    marginTop: -2,
-  },
+  createButtonIcon: { fontSize: 20 },
+  createButtonLabel: { fontSize: 10, fontWeight: '700', letterSpacing: 0.1 },
 });

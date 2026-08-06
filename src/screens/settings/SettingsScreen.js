@@ -9,6 +9,83 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import { LANGUAGES, LANGUAGE_NAMES, LANGUAGE_FLAGS } from '../../i18n';
+import { ACCENT_PRESETS } from '../../theme';
+
+// ===== AccentColorRow (inline trong Settings) =====
+function AccentColorRow({ accentColor, onSelect, theme }) {
+  const active = ACCENT_PRESETS.find(p => p.id === accentColor);
+  return (
+    <View style={accentStyles.wrap}>
+      {/* Header */}
+      <View style={accentStyles.header}>
+        <Text style={[accentStyles.title, { color: theme.colors.textSecondary }]}>
+          🎨 MÀU CHỦ ĐẠO
+        </Text>
+        <View style={[accentStyles.preview, { backgroundColor: active?.primary }]}>
+          <Text style={accentStyles.previewText}>{active?.label}</Text>
+        </View>
+      </View>
+
+      {/* Palette grid */}
+      <View style={accentStyles.grid}>
+        {ACCENT_PRESETS.map(preset => {
+          const isActive = accentColor === preset.id;
+          return (
+            <TouchableOpacity
+              key={preset.id}
+              onPress={() => onSelect(preset.id)}
+              activeOpacity={0.82}
+              style={[
+                accentStyles.swatch,
+                { backgroundColor: preset.primary },
+                isActive && {
+                  shadowColor: preset.primary,
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.55,
+                  shadowRadius: 8,
+                  elevation: 10,
+                  transform: [{ scale: 1.13 }],
+                },
+              ]}
+            >
+              {isActive && (
+                <View style={accentStyles.checkCircle}>
+                  <Text style={accentStyles.checkText}>✓</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
+const accentStyles = StyleSheet.create({
+  wrap:        { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 16 },
+  header:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
+  title:       { fontSize: 11, fontWeight: '700', letterSpacing: 0.5 },
+  preview:     { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 20 },
+  previewText: { color: '#fff', fontSize: 11, fontWeight: '800' },
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 10,
+  },
+  swatch: {
+    width: 44, height: 44,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkCircle: {
+    width: 22, height: 22, borderRadius: 11,
+    backgroundColor: 'rgba(255,255,255,0.35)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  checkText: { color: '#fff', fontSize: 13, fontWeight: '900' },
+});
 
 // ===== SettingRow =====
 function SettingRow({ icon, label, value, onPress, rightComponent, theme, showArrow = true }) {
@@ -222,7 +299,7 @@ function AboutModal({ visible, onClose, theme, t }) {
 
 // ===== MAIN =====
 export default function SettingsScreen({ navigation }) {
-  const { theme, isDark, toggleTheme, language, changeLanguage, t } = useApp();
+  const { theme, isDark, toggleTheme, language, changeLanguage, t, accentColor, setAccentColor } = useApp();
   const { user, updateProfile, logout } = useAuth();
 
   const [showTutorial, setShowTutorial] = useState(false);
@@ -247,9 +324,19 @@ export default function SettingsScreen({ navigation }) {
     if (!found || found.password !== currentPwd) {
       throw new Error('Mật khẩu hiện tại không đúng');
     }
-    // Cập nhật password mới
+    // Cập nhật password mới trong users DB
     const updated = users.map(u => u.id === user?.id ? { ...u, password: newPwd } : u);
     await AsyncStorage.setItem('@memorymap_users_db', JSON.stringify(updated));
+    // Cập nhật credentials đã lưu nếu có
+    try {
+      const savedCreds = await AsyncStorage.getItem('@memorymap_saved_credentials');
+      if (savedCreds) {
+        const creds = JSON.parse(savedCreds);
+        if (creds.email === user?.email) {
+          await AsyncStorage.setItem('@memorymap_saved_credentials', JSON.stringify({ ...creds, password: newPwd }));
+        }
+      }
+    } catch { /* bỏ qua nếu không có credentials đã lưu */ }
   }
 
   function handleFeedback() {
@@ -315,12 +402,26 @@ export default function SettingsScreen({ navigation }) {
                   style: 'destructive',
                   onPress: async () => {
                     try {
-                      // Xóa toàn bộ data và đăng xuất
-                      const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+                      // Xóa toàn bộ data của user và đăng xuất
                       await AsyncStorage.multiRemove([
                         '@memorymap_user',
                         '@memorymap_memories',
+                        '@memorymap_saved_credentials',
+                        '@memorymap_language',
+                        '@memorymap_theme',
+                        '@memorymap_accent',
+                        '@memorymap_settings',
+                        '@memorymap_session',
                       ]);
+                      // Xóa user khỏi users_db
+                      try {
+                        const db = await AsyncStorage.getItem('@memorymap_users_db');
+                        if (db) {
+                          const users = JSON.parse(db);
+                          const filtered = users.filter(u => u.id !== user?.id);
+                          await AsyncStorage.setItem('@memorymap_users_db', JSON.stringify(filtered));
+                        }
+                      } catch { /* bỏ qua */ }
                       await logout();
                     } catch {
                       Alert.alert(t('common.error'), t('errors.unknownError'));
@@ -357,6 +458,12 @@ export default function SettingsScreen({ navigation }) {
                 thumbColor={isDark ? theme.colors.primary : theme.colors.white}
               />
             }
+          />
+          {/* Màu chủ đạo */}
+          <AccentColorRow
+            accentColor={accentColor}
+            onSelect={setAccentColor}
+            theme={theme}
           />
         </SettingGroup>
 
@@ -398,6 +505,44 @@ export default function SettingsScreen({ navigation }) {
           <SettingRow
             icon="🗑️" label={t('settings.deleteAccount')}
             onPress={handleDeleteAccount} theme={theme}
+          />
+        </SettingGroup>
+
+        {/* Đăng xuất */}
+        <SettingGroup theme={theme}>
+          <SettingRow
+            icon="🚪"
+            label={t('auth.logout')}
+            onPress={() => {
+              Alert.alert(
+                t('profile.logout'),
+                t('profile.confirmLogout'),
+                [
+                  { text: t('common.cancel'), style: 'cancel' },
+                  {
+                    text: t('auth.logout'),
+                    style: 'destructive',
+                    onPress: async () => {
+                      try { await logout(); }
+                      catch { Alert.alert(t('common.error'), t('auth.errorLogoutFailed')); }
+                    },
+                  },
+                ]
+              );
+            }}
+            theme={theme}
+            showArrow={false}
+            rightComponent={
+              <View style={{
+                backgroundColor: theme.colors.error + '18',
+                paddingHorizontal: 14, paddingVertical: 6,
+                borderRadius: 20,
+              }}>
+                <Text style={{ color: theme.colors.error, fontSize: 13, fontWeight: '700' }}>
+                  🚪 {t('auth.logout')}
+                </Text>
+              </View>
+            }
           />
         </SettingGroup>
 
