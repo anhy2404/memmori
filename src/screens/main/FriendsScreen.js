@@ -5,72 +5,11 @@ import {
   FlatList, Image, Alert, Modal, ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import { useMemory } from '../../context/MemoryContext';
-
-const FRIENDS_KEY = '@memorymap_friends';
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-async function getFriendsDB() {
-  try {
-    const raw = await AsyncStorage.getItem(FRIENDS_KEY);
-    return raw ? JSON.parse(raw) : {};
-  } catch { return {}; }
-}
-
-async function saveFriendsDB(db) {
-  await AsyncStorage.setItem(FRIENDS_KEY, JSON.stringify(db));
-}
-
-// db[userId] = { friends: [userId,...], requests: [{ from, to, at }] }
-async function getFriendList(userId) {
-  const db = await getFriendsDB();
-  return db[userId]?.friends || [];
-}
-
-async function getPendingRequests(userId) {
-  const db = await getFriendsDB();
-  return (db[userId]?.requests || []).filter(r => r.to === userId);
-}
-
-async function sendFriendRequest(fromId, toId) {
-  const db = await getFriendsDB();
-  if (!db[toId]) db[toId] = { friends: [], requests: [] };
-  const already = db[toId].requests.some(r => r.from === fromId && r.to === toId);
-  if (!already) {
-    db[toId].requests = [...(db[toId].requests || []), { from: fromId, to: toId, at: Date.now() }];
-    await saveFriendsDB(db);
-  }
-}
-
-async function acceptRequest(fromId, toId) {
-  const db = await getFriendsDB();
-  // Remove request
-  if (db[toId]) {
-    db[toId].requests = (db[toId].requests || []).filter(r => !(r.from === fromId && r.to === toId));
-    db[toId].friends = [...new Set([...(db[toId].friends || []), fromId])];
-  }
-  if (!db[fromId]) db[fromId] = { friends: [], requests: [] };
-  db[fromId].friends = [...new Set([...(db[fromId].friends || []), toId])];
-  await saveFriendsDB(db);
-}
-
-async function declineRequest(fromId, toId) {
-  const db = await getFriendsDB();
-  if (db[toId]) {
-    db[toId].requests = (db[toId].requests || []).filter(r => !(r.from === fromId && r.to === toId));
-    await saveFriendsDB(db);
-  }
-}
-
-async function unfriend(userId, friendId) {
-  const db = await getFriendsDB();
-  if (db[userId]) db[userId].friends = (db[userId].friends || []).filter(id => id !== friendId);
-  if (db[friendId]) db[friendId].friends = (db[friendId].friends || []).filter(id => id !== userId);
-  await saveFriendsDB(db);
-}
+import { useNotification, NOTIF_TYPES } from '../../context/NotificationContext';
+import { friendsAPI, userAPI } from '../../services/apiService';
 
 // ─── Avatar ───────────────────────────────────────────────────────────────────
 function UserAvatar({ uri, name, size = 44, theme }) {
@@ -262,93 +201,144 @@ export default function FriendsScreen({ navigation }) {
   const { theme } = useApp();
   const { user } = useAuth();
   const { memories } = useMemory();
+  const { addNotification } = useNotification();
 
   const [tab, setTab] = useState('friends'); // 'friends' | 'requests' | 'find'
   const [friends, setFriends] = useState([]);
-  const [allUsers, setAllUsers] = useState([]);
   const [pendingReqs, setPendingReqs] = useState([]);
   const [sentReqs, setSentReqs] = useState([]);
   const [searchQ, setSearchQ] = useState('');
   const [photosModal, setPhotosModal] = useState({ visible: false, person: null });
 
-  // Load data
+  // Load data from backend API
   const reload = useCallback(async () => {
     if (!user?.id) return;
-    const db = await getFriendsDB();
-    const usersRaw = await AsyncStorage.getItem('@memorymap_users_db');
-    const usersAll = usersRaw ? JSON.parse(usersRaw) : [];
+    try {
+      const [friendsData, pendingData, sentData] = await Promise.all([
+        friendsAPI.getFriends(),
+        friendsAPI.getPendingRequests(),
+        friendsAPI.getSentRequests(),
+      ]);
 
-    const friendIds = db[user.id]?.friends || [];
-    const friendUsers = usersAll.filter(u => u.id !== user.id && friendIds.includes(u.id));
-    setFriends(friendUsers);
-
-    const incomingReqIds = (db[user.id]?.requests || []).filter(r => r.to === user.id).map(r => r.from);
-    const reqUsers = usersAll.filter(u => incomingReqIds.includes(u.id));
-    setPendingReqs(reqUsers);
-
-    // Sent requests = lời mời mình đã gửi đang chờ
-    let sent = [];
-    usersAll.forEach(u => {
-      if (u.id === user.id) return;
-      const hasSent = (db[u.id]?.requests || []).some(r => r.from === user.id && r.to === u.id);
-      if (hasSent) sent.push(u.id);
-    });
-    setSentReqs(sent);
-
-    setAllUsers(usersAll.filter(u => u.id !== user.id));
+      if (friendsData.success) {
+        setFriends(friendsData.friends || []);
+      }
+      if (pendingData.success) {
+        setPendingReqs(pendingData.requests || []);
+      }
+      if (sentData.success) {
+        const sentIds = (sentData.requests || []).map(r => r.recipient?._id || r.recipient);
+        setSentReqs(sentIds);
+      }
+    } catch (err) {
+      console.error('[FriendsScreen] reload error:', err.message);
+    }
   }, [user?.id]);
 
   useEffect(() => { reload(); }, [reload]);
 
-  // Search filter
-  const searchResults = useMemo(() => {
-    if (!searchQ.trim() || searchQ.length < 2) return [];
-    const q = searchQ.toLowerCase();
-    return allUsers.filter(u =>
-      u.fullName?.toLowerCase().includes(q) || u.email?.toLowerCase().includes(q)
-    );
-  }, [searchQ, allUsers]);
+  // Search users via API
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+
+  useEffect(() => {
+    if (!searchQ.trim() || searchQ.length < 2) {
+      setSearchResults([]);
+      return;
+    }
+    let cancelled = false;
+    setIsSearching(true);
+    userAPI.searchUsers(searchQ.trim())
+      .then(data => {
+        if (!cancelled) {
+          const results = (data.users || []).filter(u => u._id !== user?.id && u.id !== user?.id);
+          setSearchResults(results);
+        }
+      })
+      .catch(() => { if (!cancelled) setSearchResults([]); })
+      .finally(() => { if (!cancelled) setIsSearching(false); });
+    return () => { cancelled = true; };
+  }, [searchQ, user?.id]);
 
   // Photos của 1 người bạn (memories public)
   const getFriendPhotos = useCallback((friendId) => {
-    return memories.filter(m => m.userId === friendId && m.privacy === 'public');
+    return memories.filter(m => (m.userId === friendId || m.userId?._id === friendId) && m.privacy === 'public');
   }, [memories]);
 
   const handleSendRequest = useCallback(async (person) => {
-    await sendFriendRequest(user.id, person.id);
-    await reload();
-    Alert.alert('✅', `Đã gửi lời mời kết bạn đến ${person.fullName}`);
-  }, [user?.id, reload]);
+    const recipientId = person._id || person.id;
+    try {
+      const data = await friendsAPI.sendRequest(recipientId);
+      if (!data.success) throw new Error(data.message);
+      await addNotification({
+        type: NOTIF_TYPES.FRIEND_REQUEST,
+        title: 'Lời mời kết bạn mới 🤝',
+        body: `${user.fullName} đã gửi lời mời kết bạn cho bạn`,
+        fromUser: { id: user.id, fullName: user.fullName, avatar: user.avatar },
+        targetUserId: recipientId,
+      });
+      await reload();
+      Alert.alert('✅', `Đã gửi lời mời kết bạn đến ${person.fullName}`);
+    } catch (err) {
+      Alert.alert('Lỗi', err.message || 'Gửi lời mời thất bại');
+    }
+  }, [user, reload, addNotification]);
 
   const handleAccept = useCallback(async (person) => {
-    await acceptRequest(person.id, user.id);
-    await reload();
-  }, [user?.id, reload]);
+    const requesterId = person._id || person.id;
+    try {
+      const data = await friendsAPI.acceptRequest(requesterId);
+      if (!data.success) throw new Error(data.message);
+      await addNotification({
+        type: NOTIF_TYPES.FRIEND_ACCEPTED,
+        title: 'Lời mời kết bạn được chấp nhận ✅',
+        body: `${user.fullName} đã chấp nhận lời mời kết bạn của bạn`,
+        fromUser: { id: user.id, fullName: user.fullName, avatar: user.avatar },
+        targetUserId: requesterId,
+      });
+      await reload();
+    } catch (err) {
+      Alert.alert('Lỗi', err.message || 'Chấp nhận lời mời thất bại');
+    }
+  }, [user, reload, addNotification]);
 
   const handleDecline = useCallback(async (person) => {
-    await declineRequest(person.id, user.id);
-    await reload();
-  }, [user?.id, reload]);
+    const requesterId = person._id || person.id;
+    try {
+      const data = await friendsAPI.declineRequest(requesterId);
+      if (!data.success) throw new Error(data.message);
+      await reload();
+    } catch (err) {
+      Alert.alert('Lỗi', err.message || 'Từ chối thất bại');
+    }
+  }, [reload]);
 
   const handleUnfriend = useCallback((person) => {
+    const friendId = person._id || person.id;
     Alert.alert('Huỷ kết bạn', `Bỏ kết bạn với ${person.fullName}?`, [
       { text: 'Huỷ', style: 'cancel' },
       { text: 'Đồng ý', style: 'destructive', onPress: async () => {
-        await unfriend(user.id, person.id);
-        await reload();
+        try {
+          const data = await friendsAPI.unfriend(friendId);
+          if (!data.success) throw new Error(data.message);
+          await reload();
+        } catch (err) {
+          Alert.alert('Lỗi', err.message || 'Hủy kết bạn thất bại');
+        }
       }},
     ]);
-  }, [user?.id, reload]);
+  }, [reload]);
 
   // ── Render người dùng trong tìm kiếm ─────────────────────────────────────
-  const isFriend = useCallback((id) => friends.some(f => f.id === id), [friends]);
+  const isFriend = useCallback((id) => friends.some(f => (f._id || f.id) === id), [friends]);
   const isRequested = useCallback((id) => sentReqs.includes(id), [sentReqs]);
-  const isIncoming = useCallback((id) => pendingReqs.some(p => p.id === id), [pendingReqs]);
+  const isIncoming = useCallback((id) => pendingReqs.some(p => (p._id || p.id) === id || p.sender?._id === id || p.sender?.id === id), [pendingReqs]);
 
   function renderSearchUser({ item }) {
-    const alreadyFriend = isFriend(item.id);
-    const alreadySent   = isRequested(item.id);
-    const incoming      = isIncoming(item.id);
+    const itemId = item._id || item.id;
+    const alreadyFriend = isFriend(itemId);
+    const alreadySent   = isRequested(itemId);
+    const incoming      = isIncoming(itemId);
     return (
       <View style={[fcStyles.card, { backgroundColor: theme.colors.card, ...theme.shadows.sm }]}>
         <UserAvatar uri={item.avatar} name={item.fullName} size={46} theme={theme} />

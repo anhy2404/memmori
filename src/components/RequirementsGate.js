@@ -11,15 +11,16 @@ import { useRequirements } from '../context/RequirementsContext';
 import { useApp } from '../context/AppContext';
 import AppLogo from './AppLogo';
 
-function StatusRow({ ok, label, hint }) {
+function StatusRow({ ok, label, hint, optional }) {
   return (
     <View style={rowStyles.row}>
-      <View style={[rowStyles.icon, ok ? rowStyles.iconOk : rowStyles.iconBad]}>
-        <Text style={rowStyles.iconText}>{ok ? '✓' : '✗'}</Text>
+      <View style={[rowStyles.icon, ok ? rowStyles.iconOk : (optional ? rowStyles.iconOptional : rowStyles.iconBad)]}>
+        <Text style={rowStyles.iconText}>{ok ? '✓' : 'ℹ'}</Text>
       </View>
       <View style={{ flex: 1 }}>
-        <Text style={[rowStyles.label, ok ? rowStyles.labelOk : rowStyles.labelBad]}>
+        <Text style={[rowStyles.label, ok ? rowStyles.labelOk : (optional ? rowStyles.labelOptional : rowStyles.labelBad)]}>
           {label}
+          {optional && !ok ? ' (tùy chọn)' : ''}
         </Text>
         {!ok && hint ? (
           <Text style={rowStyles.hint}>{hint}</Text>
@@ -30,15 +31,17 @@ function StatusRow({ ok, label, hint }) {
 }
 
 const rowStyles = StyleSheet.create({
-  row:      { flexDirection: 'row', alignItems: 'flex-start', gap: 14, marginBottom: 16 },
-  icon:     { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
-  iconOk:   { backgroundColor: '#22c55e' },
-  iconBad:  { backgroundColor: '#ef4444' },
-  iconText: { color: '#fff', fontSize: 16, fontWeight: '800' },
-  label:    { fontSize: 16, fontWeight: '700', marginBottom: 2 },
-  labelOk:  { color: '#16a34a' },
-  labelBad: { color: '#dc2626' },
-  hint:     { fontSize: 12, color: '#6b7280', lineHeight: 18 },
+  row:           { flexDirection: 'row', alignItems: 'flex-start', gap: 14, marginBottom: 16 },
+  icon:          { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  iconOk:        { backgroundColor: '#22c55e' },
+  iconBad:       { backgroundColor: '#ef4444' },
+  iconOptional:  { backgroundColor: '#94a3b8' },
+  iconText:      { color: '#fff', fontSize: 16, fontWeight: '800' },
+  label:         { fontSize: 16, fontWeight: '700', marginBottom: 2 },
+  labelOk:       { color: '#16a34a' },
+  labelBad:      { color: '#dc2626' },
+  labelOptional: { color: '#64748b' },
+  hint:          { fontSize: 12, color: '#6b7280', lineHeight: 18 },
 });
 
 export default function RequirementsGate({ children }) {
@@ -53,6 +56,7 @@ export default function RequirementsGate({ children }) {
 
   const { t } = useApp();
 
+  // allRequirementsMet = isOnline; GPS rows are informational only
   if (allRequirementsMet) return children;
 
   function openSettings() {
@@ -73,26 +77,28 @@ export default function RequirementsGate({ children }) {
       <Text style={styles.subtitle}>
         {t('requirements.subtitle')}{'\n'}
         <Text style={styles.bold}>{t('requirements.subtitleNetwork')}</Text>
-        {' '}{t('requirements.subtitleAnd')}{' '}
-        <Text style={styles.bold}>{t('requirements.subtitleLocation')}</Text>
         {' '}{t('requirements.subtitleSuffix')}
       </Text>
 
       <View style={styles.statusCard}>
+        {/* Network — required, blocks app */}
         <StatusRow
           ok={isOnline}
           label={isOnline ? t('requirements.networkOk') : t('requirements.networkFail')}
           hint={t('requirements.networkHint')}
         />
+        {/* GPS — informational only */}
         <StatusRow
           ok={locationEnabled}
           label={locationEnabled ? t('requirements.locationServiceOk') : t('requirements.locationServiceFail')}
           hint={t('requirements.locationServiceHint')}
+          optional
         />
         <StatusRow
           ok={locationGranted}
           label={locationGranted ? t('requirements.locationPermOk') : t('requirements.locationPermFail')}
           hint={t('requirements.locationPermHint')}
+          optional
         />
       </View>
 
@@ -117,7 +123,7 @@ export default function RequirementsGate({ children }) {
         <Text style={styles.settingsBtnText}>{t('requirements.openSettings')}</Text>
       </TouchableOpacity>
 
-      <Text style={styles.footer}>{t('requirements.footer')}</Text>
+      <Text style={styles.footer}>{t('requirements.footerNetwork')}</Text>
     </SafeAreaView>
   );
 }

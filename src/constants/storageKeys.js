@@ -1,0 +1,13 @@
+// src/constants/storageKeys.js - Tập trung tất cả AsyncStorage keys
+export const STORAGE_KEYS = {
+  TOKEN:             '@memmori_token',
+  REFRESH_TOKEN:     '@memmori_refresh_token',
+  USER:              '@memmori_user',
+  LANGUAGE:          '@memmori_language',
+  THEME:             '@memmori_theme',
+  ACCENT:            '@memmori_accent',
+  SETTINGS:          '@memmori_settings',
+  SAVED_CREDENTIALS: '@memmori_saved_credentials',
+  FRIENDS_DB:        '@memmori_friends',
+  USERS_DB:          '@memmori_users_db',
+};

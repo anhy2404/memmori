@@ -75,13 +75,13 @@ const authS = StyleSheet.create({
 
 // ─── Memory Card ──────────────────────────────────────────────────────────────
 const MemoryCard = React.memo(function MemoryCard({
-  memory, onPress, onDelete, theme, t, isNewest, currentUserId, currentUser,
+  memory, onPress, onDelete, theme, t, isNewest, currentUserId, currentUser, language,
 }) {
   const firstPhoto = memory.photos?.[0] || null;
   const isOwn    = memory.userId === currentUserId;
   const isPublic = memory.privacy === 'public';
-  const dateStr  = new Date(memory.createdAt).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
-  const timeStr  = new Date(memory.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+  const dateStr  = new Date(memory.createdAt).toLocaleDateString(language || undefined, { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const timeStr  = new Date(memory.createdAt).toLocaleTimeString(language || undefined, { hour: '2-digit', minute: '2-digit' });
 
   return (
     <TouchableOpacity
@@ -248,7 +248,7 @@ function EmptyState({ onCreatePress, theme, t, styles }) {
 
 // ─── Main ──────────────────────────────────────────────────────────────────────
 export default function HomeScreen({ navigation }) {
-  const { theme, t } = useApp();
+  const { theme, t, language } = useApp();
   const { user } = useAuth();
   const { getFilteredMemories, deleteMemory, refreshMemories, isLoading } = useMemory();
 
@@ -308,7 +308,7 @@ export default function HomeScreen({ navigation }) {
     <MemoryCard
       memory={item} onPress={handleMemoryPress} onDelete={handleDeleteMemory}
       theme={theme} t={t} isNewest={item.id === newestId}
-      currentUserId={user?.id} currentUser={user}
+      currentUserId={user?.id} currentUser={user} language={language}
     />
   ), [handleMemoryPress, handleDeleteMemory, theme, t, newestId, user]);
 

@@ -10,13 +10,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../../context/AuthContext';
 import { useApp } from '../../context/AppContext';
 import AppLogo from '../../components/AppLogo';
-import { sendOTP } from '../../services/otpService';
+import { SEED_EMAILS } from '../../constants';
 
 const { width } = Dimensions.get('window');
-const SAVED_CREDENTIALS_KEY = '@memorymap_saved_credentials';
+const SAVED_CREDENTIALS_KEY = '@memmori_saved_credentials';
 
 export default function LoginScreen({ navigation }) {
-  const { login, checkCredentials } = useAuth();
+  const { login } = useAuth();
   const { theme, t } = useApp();
 
   const [email, setEmail]           = useState('');
@@ -56,10 +56,10 @@ export default function LoginScreen({ navigation }) {
 
   function validate() {
     const e = {};
-    if (!email.trim())                              e.email    = t('auth.errorEmailRequired');
+    if (!email.trim()) e.email = t('auth.errorEmailRequired');
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) e.email = t('auth.errorEmailInvalid');
-    if (!password)                                  e.password = t('auth.errorPasswordRequired');
-    else if (password.length < 6)                   e.password = t('auth.errorPasswordMin');
+    if (!password) e.password = t('auth.errorPasswordRequired');
+    else if (password.length < 6) e.password = t('auth.errorPasswordMin');
     setErrors(e);
     return Object.keys(e).length === 0;
   }
@@ -68,47 +68,68 @@ export default function LoginScreen({ navigation }) {
     if (!validate()) return;
     setIsLoading(true);
     try {
-      const check = await checkCredentials({ email: email.trim(), password });
-      const result = await sendOTP(email.trim(), check.fullName || '', 'login');
+      const result = await login({ email: email.trim(), password });
 
-      // Lưu thông tin nếu rememberMe bật
-      if (rememberMe) {
-        await AsyncStorage.setItem(SAVED_CREDENTIALS_KEY, JSON.stringify({
-          email: email.trim(), password,
-        }));
-      } else if (!hasSaved) {
-        // Lần đầu đăng nhập — hỏi có muốn lưu không
-        Alert.alert(
-          '🔐 Nhớ tài khoản',
-          'Bạn có muốn lưu email và mật khẩu để đăng nhập nhanh lần sau không?',
-          [
-            {
-              text: 'Không', style: 'cancel',
-              onPress: () => AsyncStorage.removeItem(SAVED_CREDENTIALS_KEY),
-            },
-            {
-              text: 'Lưu lại ✓',
-              onPress: async () => {
-                await AsyncStorage.setItem(SAVED_CREDENTIALS_KEY, JSON.stringify({
-                  email: email.trim(), password,
-                }));
-                setRememberMe(true);
-                setHasSaved(true);
-              },
-            },
-          ]
-        );
+      // Seed account → đăng nhập thẳng xong
+      if (result.success && !result.requireOTP) {
+        if (rememberMe) {
+          await AsyncStorage.setItem(SAVED_CREDENTIALS_KEY, JSON.stringify({
+            email: email.trim(), password,
+          }));
+        }
+        return; // AuthContext đã set isAuthenticated = true
       }
 
-      navigation.navigate('OTP', {
-        email: email.trim(),
-        fullName: check.fullName || '',
-        purpose: 'login',
-        formData: { email: email.trim(), password },
-        devOTP: result.otp || '',
-      });
+      // Tài khoản thường → cần OTP
+      if (result.requireOTP) {
+        if (rememberMe) {
+          await AsyncStorage.setItem(SAVED_CREDENTIALS_KEY, JSON.stringify({
+            email: email.trim(), password,
+          }));
+        } else if (!hasSaved) {
+          Alert.alert(
+            '🔐 Nhớ tài khoản',
+            'Bạn có muốn lưu email và mật khẩu để đăng nhập nhanh lần sau không?',
+            [
+              { text: 'Không', style: 'cancel', onPress: () => AsyncStorage.removeItem(SAVED_CREDENTIALS_KEY) },
+              {
+                text: 'Lưu lại ✓',
+                onPress: async () => {
+                  await AsyncStorage.setItem(SAVED_CREDENTIALS_KEY, JSON.stringify({ email: email.trim(), password }));
+                  setRememberMe(true);
+                  setHasSaved(true);
+                },
+              },
+            ]
+          );
+        }
+
+        navigation.navigate('OTP', {
+          email: email.trim(),
+          fullName: result.fullName || '',
+          purpose: 'login',
+          formData: { email: email.trim(), password },
+          devOTP: result.devOTP || '',
+        });
+      }
     } catch (error) {
-      Alert.alert(t('common.error'), error.message || t('auth.errorLoginFailed'));
+      const msg = error.message || '';
+      if (msg === 'EMAIL_NOT_FOUND' || msg.includes('không tồn tại')) {
+        Alert.alert(
+          '📭 Chưa có tài khoản',
+          `Email "${email.trim()}" chưa được đăng ký.\n\nBạn có muốn tạo tài khoản mới không?`,
+          [
+            { text: 'Để sau', style: 'cancel' },
+            { text: '✨ Đăng ký ngay', onPress: () => navigation.navigate('Register') },
+          ]
+        );
+      } else if (msg === 'WRONG_PASSWORD' || msg.includes('Mật khẩu')) {
+        Alert.alert('🔒 Sai mật khẩu', 'Mật khẩu không đúng. Vui lòng thử lại.');
+      } else if (msg.includes('kết nối') || msg.includes('server')) {
+        Alert.alert('🌐 Lỗi kết nối', 'Không kết nối được server. Kiểm tra backend đang chạy và cùng WiFi.');
+      } else {
+        Alert.alert('❌ Lỗi', msg || t('auth.errorLoginFailed'));
+      }
     } finally {
       setIsLoading(false);
     }
@@ -130,7 +151,7 @@ export default function LoginScreen({ navigation }) {
           {/* Header */}
           <View style={s.header}>
             <AppLogo size={88} showName={false} />
-            <Text style={s.appName}>MemoryMap</Text>
+            <Text style={s.appName}>Memmori</Text>
             <Text style={s.tagline}>✨ Lưu giữ kỷ niệm đẹp mỗi ngày</Text>
             <Text style={s.title}>{t('auth.welcomeBack')}</Text>
             <Text style={s.subtitle}>{t('auth.welcomeSubtitle')}</Text>
@@ -143,9 +164,7 @@ export default function LoginScreen({ navigation }) {
             {hasSaved && (
               <View style={[s.savedBanner, { backgroundColor: theme.colors.primary + '12', borderColor: theme.colors.primary + '30' }]}>
                 <Text style={{ fontSize: 16 }}>🔐</Text>
-                <Text style={[s.savedBannerText, { color: theme.colors.primary }]}>
-                  Đã điền thông tin đã lưu
-                </Text>
+                <Text style={[s.savedBannerText, { color: theme.colors.primary }]}>Đã điền thông tin đã lưu</Text>
                 <TouchableOpacity onPress={handleForgetSaved}>
                   <Text style={[s.savedBannerClear, { color: theme.colors.error }]}>Xoá</Text>
                 </TouchableOpacity>
@@ -196,28 +215,18 @@ export default function LoginScreen({ navigation }) {
 
             {/* Nhớ tài khoản + Quên mật khẩu */}
             <View style={s.rememberRow}>
-              <TouchableOpacity
-                style={s.rememberWrap}
-                onPress={() => setRememberMe(v => !v)}
-                activeOpacity={0.7}
-              >
+              <TouchableOpacity style={s.rememberWrap} onPress={() => setRememberMe(v => !v)} activeOpacity={0.7}>
                 <View style={[s.checkbox, {
                   backgroundColor: rememberMe ? theme.colors.primary : 'transparent',
                   borderColor: rememberMe ? theme.colors.primary : theme.colors.inputBorder,
                 }]}>
                   {rememberMe && <Text style={s.checkboxTick}>✓</Text>}
                 </View>
-                <Text style={[s.rememberText, { color: theme.colors.textSecondary }]}>
-                  Nhớ tài khoản
-                </Text>
+                <Text style={[s.rememberText, { color: theme.colors.textSecondary }]}>Nhớ tài khoản</Text>
               </TouchableOpacity>
-
               <TouchableOpacity
                 style={s.forgotBtn}
-                onPress={() => Alert.alert(
-                  t('auth.forgotPassword'),
-                  `${t('auth.forgotPasswordHint')}\n\nDemo: demo@memorymap.vn / 123456`
-                )}
+                onPress={() => Alert.alert(t('auth.forgotPassword'), `${t('auth.forgotPasswordHint')}\n\nDemo: demo@memmori.vn / 123456`)}
               >
                 <Text style={[s.forgotText, { color: theme.colors.primary }]}>{t('auth.forgotPassword')}</Text>
               </TouchableOpacity>
@@ -247,7 +256,7 @@ export default function LoginScreen({ navigation }) {
             {/* Demo hint */}
             <TouchableOpacity
               style={s.demoBtn}
-              onPress={() => { setEmail('demo@memorymap.vn'); setPassword('123456'); }}
+              onPress={() => { setEmail('demo@memmori.vn'); setPassword('123456'); }}
             >
               <Text style={[s.demoText, { color: theme.colors.textSecondary }]}>
                 🎯 {t('auth.demoHint')}
@@ -266,18 +275,13 @@ function makeStyles(theme) {
     flex:         { flex: 1 },
     scrollContent:{ flexGrow: 1, paddingHorizontal: 24, paddingBottom: 40 },
     header:       { alignItems: 'center', paddingTop: 36, paddingBottom: 24 },
-    appName: {
-      fontSize: 28, fontWeight: '800', color: theme.colors.primary,
-      marginTop: 10, marginBottom: 6, letterSpacing: 1,
-    },
-    tagline: {
-      fontSize: 13, color: theme.colors.secondary, fontWeight: '600', marginBottom: 14,
-    },
-    title:        { fontSize: 22, fontWeight: '800', color: theme.colors.text, marginBottom: 6 },
-    subtitle:     { fontSize: 14, color: theme.colors.textSecondary, textAlign: 'center', lineHeight: 20 },
-    form:         { gap: 4 },
-    fieldGroup:   { marginBottom: 16 },
-    label:        { fontSize: 14, fontWeight: '700', color: theme.colors.text, marginBottom: 8 },
+    appName: { fontSize: 28, fontWeight: '800', color: theme.colors.primary, marginTop: 10, marginBottom: 6, letterSpacing: 1 },
+    tagline: { fontSize: 13, color: theme.colors.secondary, fontWeight: '600', marginBottom: 14 },
+    title:   { fontSize: 22, fontWeight: '800', color: theme.colors.text, marginBottom: 6 },
+    subtitle:{ fontSize: 14, color: theme.colors.textSecondary, textAlign: 'center', lineHeight: 20 },
+    form:    { gap: 4 },
+    fieldGroup: { marginBottom: 16 },
+    label:   { fontSize: 14, fontWeight: '700', color: theme.colors.text, marginBottom: 8 },
     inputWrapper: {
       flexDirection: 'row', alignItems: 'center',
       backgroundColor: theme.colors.inputBackground,
@@ -285,14 +289,12 @@ function makeStyles(theme) {
       borderColor: theme.colors.inputBorder,
       paddingHorizontal: 14, height: 54,
     },
-    inputError:   { borderColor: theme.colors.error },
-    inputIcon:    { fontSize: 18, marginRight: 10 },
-    input:        { flex: 1, fontSize: 15, color: theme.colors.text, height: '100%' },
-    eyeBtn:       { padding: 6 },
-    eyeIcon:      { fontSize: 18 },
-    errorText:    { fontSize: 12, color: theme.colors.error, marginTop: 5 },
-
-    // Banner thông tin đã lưu
+    inputError: { borderColor: theme.colors.error },
+    inputIcon:  { fontSize: 18, marginRight: 10 },
+    input:      { flex: 1, fontSize: 15, color: theme.colors.text, height: '100%' },
+    eyeBtn:     { padding: 6 },
+    eyeIcon:    { fontSize: 18 },
+    errorText:  { fontSize: 12, color: theme.colors.error, marginTop: 5 },
     savedBanner: {
       flexDirection: 'row', alignItems: 'center', gap: 8,
       paddingHorizontal: 14, paddingVertical: 10,
@@ -300,19 +302,13 @@ function makeStyles(theme) {
     },
     savedBannerText:  { flex: 1, fontSize: 13, fontWeight: '600' },
     savedBannerClear: { fontSize: 13, fontWeight: '700' },
-
-    // Nhớ tài khoản + quên mật khẩu
     rememberRow:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, marginTop: -4 },
     rememberWrap: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    checkbox: {
-      width: 20, height: 20, borderRadius: 6, borderWidth: 2,
-      alignItems: 'center', justifyContent: 'center',
-    },
+    checkbox: { width: 20, height: 20, borderRadius: 6, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
     checkboxTick: { color: '#fff', fontSize: 12, fontWeight: '900', lineHeight: 14 },
     rememberText: { fontSize: 13, fontWeight: '500' },
-
-    forgotBtn:    { padding: 4 },
-    forgotText:   { fontSize: 13, fontWeight: '700' },
+    forgotBtn:  { padding: 4 },
+    forgotText: { fontSize: 13, fontWeight: '700' },
     loginBtn: {
       height: 54, borderRadius: 27, alignItems: 'center', justifyContent: 'center', marginTop: 8,
       shadowColor: '#7C5CBF', shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.4, shadowRadius: 12, elevation: 6,
@@ -324,9 +320,8 @@ function makeStyles(theme) {
     registerLink: { fontSize: 14, fontWeight: '800' },
     demoBtn: {
       marginTop: 16, alignItems: 'center', padding: 12,
-      borderRadius: 14, borderWidth: 1.5, borderColor: theme.colors.border,
-      borderStyle: 'dashed',
+      borderRadius: 14, borderWidth: 1.5, borderColor: theme.colors.border, borderStyle: 'dashed',
     },
-    demoText:     { fontSize: 12, textAlign: 'center', lineHeight: 18 },
+    demoText: { fontSize: 12, textAlign: 'center', lineHeight: 18 },
   });
 }

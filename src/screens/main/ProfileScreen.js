@@ -10,6 +10,9 @@ import * as ImagePicker from 'expo-image-picker';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import { useMemory } from '../../context/MemoryContext';
+import { useNotification } from '../../context/NotificationContext';
+import { ADMIN_EMAIL } from '../../constants';
+import { userAPI } from '../../services/apiService';
 
 const { width } = Dimensions.get('window');
 const GRID_ITEM_SIZE = (width - 48) / 3;
@@ -285,6 +288,10 @@ export default function ProfileScreen({ navigation }) {
   const { theme, t } = useApp();
   const { user, logout, updateProfile } = useAuth();
   const { getMyMemories, getStats } = useMemory();
+  const { getUnreadCount } = useNotification();
+
+  const isAdmin = user?.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+  const unreadCount = getUnreadCount(user?.id);
 
   const [showEdit, setShowEdit] = useState(false);
   const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'list'
@@ -353,7 +360,16 @@ export default function ProfileScreen({ navigation }) {
         quality: 0.7,
       });
       if (!result.canceled && result.assets?.[0]) {
-        await updateProfile({ avatar: result.assets[0].uri });
+        const uri = result.assets[0].uri;
+        // Upload avatar lên server
+        const data = await userAPI.uploadAvatar(uri);
+        if (data.success) {
+          // updateProfile để refresh user state với avatar URL từ server
+          await updateProfile({ avatar: data.avatarUrl || uri });
+        } else {
+          // fallback: lưu URI tạm
+          await updateProfile({ avatar: uri });
+        }
         Alert.alert('✅', t('profile.updateSuccess'));
       }
     } catch (err) {
@@ -405,12 +421,46 @@ export default function ProfileScreen({ navigation }) {
             >
               <Text style={styles.editBtnText}>✏️ {t('profile.editProfile')}</Text>
             </TouchableOpacity>
+
+            {/* Thông báo với badge */}
+            <TouchableOpacity
+              style={[styles.settingsBtn, { backgroundColor: theme.colors.inputBackground }]}
+              onPress={() => navigation.navigate('Notifications')}
+            >
+              <View>
+                <Text style={{ fontSize: 18 }}>🔔</Text>
+                {unreadCount > 0 && (
+                  <View style={{
+                    position: 'absolute', top: -4, right: -4,
+                    backgroundColor: '#ef4444', borderRadius: 8,
+                    minWidth: 16, height: 16, alignItems: 'center', justifyContent: 'center',
+                    paddingHorizontal: 3,
+                  }}>
+                    <Text style={{ color: '#fff', fontSize: 9, fontWeight: '900' }}>
+                      {unreadCount > 99 ? '99+' : unreadCount}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </TouchableOpacity>
+
             <TouchableOpacity
               style={[styles.settingsBtn, { backgroundColor: theme.colors.inputBackground }]}
               onPress={() => navigation.navigate('Settings')}
             >
               <Text style={{ fontSize: 18 }}>⚙️</Text>
             </TouchableOpacity>
+
+            {/* Admin button - chỉ hiện với admin */}
+            {isAdmin && (
+              <TouchableOpacity
+                style={[styles.settingsBtn, { backgroundColor: '#7c3aed20' }]}
+                onPress={() => navigation.navigate('Admin')}
+              >
+                <Text style={{ fontSize: 18 }}>👑</Text>
+              </TouchableOpacity>
+            )}
+
             <TouchableOpacity
               style={[styles.logoutBtn, { backgroundColor: theme.colors.error + '20' }]}
               onPress={handleLogout}

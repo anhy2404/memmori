@@ -120,23 +120,26 @@ export function RequirementsProvider({ children }) {
     }
   }, [checkLocation]);
 
-  // Điều kiện đủ để vào app
-  const allRequirementsMet = isOnline && locationEnabled && locationGranted;
+  // Điều kiện đủ để vào app — chỉ cần mạng
+  const allRequirementsMet = isOnline;
+  // locationAvailable để các screen dùng disable tính năng GPS (không block app)
+  const locationAvailable = locationEnabled && locationGranted;
 
-  // Dừng polling khi đã đủ điều kiện, khởi động lại khi thiếu điều kiện
+  // Dừng polling khi đã có đủ điều kiện GPS, khởi động lại khi thiếu
   useEffect(() => {
-    if (allRequirementsMet) {
+    if (locationAvailable) {
       stopLocationPolling();
     } else if (!isChecking) {
       startLocationPolling();
     }
-  }, [allRequirementsMet, isChecking, startLocationPolling, stopLocationPolling]);
+  }, [locationAvailable, isChecking, startLocationPolling, stopLocationPolling]);
 
   return (
     <RequirementsContext.Provider value={{
       isOnline,
       locationEnabled,
       locationGranted,
+      locationAvailable,
       allRequirementsMet,
       isChecking,
       retryCheck,

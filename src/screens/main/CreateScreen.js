@@ -8,11 +8,39 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
+import * as FileSystem from 'expo-file-system';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import { useMemory } from '../../context/MemoryContext';
+import { useNotification, NOTIF_TYPES } from '../../context/NotificationContext';
 import { generateCaption } from '../../services/geminiService';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { userAPI } from '../../services/apiService';
+
+// Thư mục lưu ảnh permanent trong app
+const PHOTOS_DIR = FileSystem.documentDirectory + 'memories/';
+
+/**
+ * Copy ảnh từ cache/temp vào thư mục permanent của app
+ * Đảm bảo ảnh không bị mất sau khi app restart
+ */
+async function copyPhotoToPermanent(uri) {
+  try {
+    // Tạo thư mục nếu chưa có
+    const dirInfo = await FileSystem.getInfoAsync(PHOTOS_DIR);
+    if (!dirInfo.exists) {
+      await FileSystem.makeDirectoryAsync(PHOTOS_DIR, { intermediates: true });
+    }
+    // Tên file duy nhất
+    const ext = uri.split('.').pop()?.split('?')[0] || 'jpg';
+    const fileName = `photo_${Date.now()}_${Math.random().toString(36).substr(2, 6)}.${ext}`;
+    const destUri = PHOTOS_DIR + fileName;
+    await FileSystem.copyAsync({ from: uri, to: destUri });
+    return destUri;
+  } catch (error) {
+    console.warn('[CreateScreen] Không copy được ảnh, dùng URI gốc:', error.message);
+    return uri; // fallback về URI gốc
+  }
+}
 
 const { width } = Dimensions.get('window');
 
@@ -48,6 +76,7 @@ export default function CreateScreen({ navigation }) {
   const { theme, t } = useApp();
   const { user } = useAuth();
   const { addMemory } = useMemory();
+  const { addNotification } = useNotification();
 
   // Privacy options - i18n
   const PRIVACY_OPTIONS = useMemo(() => [
@@ -217,7 +246,8 @@ export default function CreateScreen({ navigation }) {
         exif: false,
       });
       if (!result.canceled && result.assets?.[0]) {
-        setPhotos(prev => [...prev, result.assets[0].uri]);
+        const permanentUri = await copyPhotoToPermanent(result.assets[0].uri);
+        setPhotos(prev => [...prev, permanentUri]);
       }
     } catch (error) {
       console.error('[CreateScreen] Lỗi camera:', error);
@@ -253,8 +283,11 @@ export default function CreateScreen({ navigation }) {
         orderedSelection: true,
       });
       if (!result.canceled && result.assets?.length > 0) {
-        const newUris = result.assets.map(a => a.uri);
-        setPhotos(prev => [...prev, ...newUris].slice(0, 10));
+        // Copy tất cả ảnh vào thư mục permanent
+        const permanentUris = await Promise.all(
+          result.assets.map(a => copyPhotoToPermanent(a.uri))
+        );
+        setPhotos(prev => [...prev, ...permanentUris].slice(0, 10));
       }
     } catch (error) {
       console.error('[CreateScreen] Lỗi chọn ảnh:', error);
@@ -299,16 +332,11 @@ export default function CreateScreen({ navigation }) {
       return;
     }
     try {
-      const db = await AsyncStorage.getItem('@memorymap_users_db');
-      const users = db ? JSON.parse(db) : [];
-      const q = query.toLowerCase().trim();
-      const results = users
-        .filter(u =>
-          u.id !== user?.id && // Không tự tag mình
-          (u.fullName?.toLowerCase().includes(q) || u.email?.toLowerCase().includes(q))
-        )
+      const data = await userAPI.searchUsers(query.trim());
+      const results = (data.users || [])
+        .filter(u => (u._id || u.id) !== user?.id)
         .slice(0, 6)
-        .map(u => ({ id: u.id, fullName: u.fullName, email: u.email }));
+        .map(u => ({ id: u._id || u.id, fullName: u.fullName, email: u.email }));
       setTagUserResults(results);
     } catch {
       setTagUserResults([]);
@@ -369,6 +397,18 @@ export default function CreateScreen({ navigation }) {
         ownerName: user?.fullName || '',
         userId: user?.id,
       });
+
+      // Gửi thông báo cho những người được gắn thẻ
+      for (const tagged of taggedUsers) {
+        await addNotification({
+          type: NOTIF_TYPES.MEMORY_TAGGED,
+          title: 'Bạn được gắn thẻ trong kỷ niệm 🏷️',
+          body: `${user?.fullName || 'Ai đó'} đã gắn thẻ bạn trong "${title.trim()}"`,
+          fromUser: { id: user?.id, fullName: user?.fullName, avatar: user?.avatar },
+          targetUserId: tagged.id,
+          data: {},
+        });
+      }
       Alert.alert('✅', t('create.saveSuccess'), [
         {
           text: t('common.ok'),
