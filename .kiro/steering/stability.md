@@ -2,7 +2,7 @@
 inclusion: auto
 ---
 
-# MemoryMap - Quy tắc giữ app ổn định
+# Memmori - Quy tắc giữ app ổn định
 
 ## Trước khi sửa code
 - Luôn đọc file cần sửa trước, không sửa mù
@@ -20,7 +20,7 @@ inclusion: auto
 
 ## Chạy app
 - Metro đang chạy tại terminal ID (kiểm tra bằng list_processes)
-- Nếu Metro dừng → chạy: `npx expo start --android --clear` tại `d:\mi\APP\MemoryMap`
+- Nếu Metro dừng → chạy: `npx expo start --android --clear` tại `d:\mi\APP\Memmori`
 - Nếu app không reload → lắc điện thoại → Reload hoặc `r` trong terminal Metro
 
 ## File quan trọng

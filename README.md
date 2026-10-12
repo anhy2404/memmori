@@ -1,4 +1,4 @@
-# 🗺️ MemoryMap
+# 🗺️ Memmori
 
 Ứng dụng lưu giữ kỷ niệm và khám phá du lịch Việt Nam, xây dựng bằng **React Native** + **Expo**.
 
@@ -55,7 +55,7 @@
 - Xem kỷ niệm public của bạn bè
 
 ### AI Chat
-- Chat với MemoryMap AI (Google Gemini) về du lịch Việt Nam
+- Chat với Memmori AI (Google Gemini) về du lịch Việt Nam
 - Tư vấn địa điểm, ẩm thực, lịch trình
 - Hỗ trợ 3 ngôn ngữ: Tiếng Việt / English / 中文
 - Demo mode khi chưa có API key
@@ -101,7 +101,7 @@ App.js
 ## 📁 Cấu trúc thư mục
 
 ```
-MemoryMap/
+Memmori/
 ├── App.js                          # Entry point, providers, ErrorBoundary
 ├── app.json                        # Cấu hình Expo
 ├── package.json
@@ -111,7 +111,7 @@ MemoryMap/
 │   └── start.js
 └── src/
     ├── components/
-    │   ├── AppLogo.js              # Logo MemoryMap
+    │   ├── AppLogo.js              # Logo Memmori
     │   ├── EmptyIllustration.js    # Minh họa khi danh sách trống
     │   └── RequirementsGate.js     # Màn hình chặn mạng/GPS
     ├── context/
@@ -165,7 +165,7 @@ MemoryMap/
 ### Cài đặt
 
 ```bash
-cd MemoryMap
+cd Memmori
 npm install
 ```
 
@@ -281,7 +281,7 @@ Quản lý toàn bộ cài đặt hiển thị và ngôn ngữ.
 | `changeLanguage(lang)` | Thay đổi ngôn ngữ |
 | `isLoading` | Đang tải cài đặt từ AsyncStorage |
 
-Lưu trữ: `@memorymap_language`, `@memorymap_theme`, `@memorymap_accent`, `@memorymap_settings`
+Lưu trữ: `@memmori_language`, `@memmori_theme`, `@memmori_accent`, `@memmori_settings`
 
 ### AuthContext
 Quản lý xác thực và "database" người dùng local.
@@ -298,7 +298,7 @@ Quản lý xác thực và "database" người dùng local.
 | `checkCredentials({ email, password })` | Kiểm tra thông tin trước khi gửi OTP |
 | `checkEmailAvailable(email)` | Kiểm tra email đã tồn tại chưa |
 
-Lưu trữ: `@memorymap_user` (session), `@memorymap_users_db` (toàn bộ users)
+Lưu trữ: `@memmori_user` (session), `@memmori_users_db` (toàn bộ users)
 
 ### MemoryContext
 Quản lý toàn bộ kỷ niệm với race-condition safe save.
@@ -317,7 +317,7 @@ Quản lý toàn bộ kỷ niệm với race-condition safe save.
 | `getMemoryById(id)` | Lấy 1 memory theo id |
 | `refreshMemories()` | Reload từ AsyncStorage |
 
-Lưu trữ: `@memorymap_memories`
+Lưu trữ: `@memmori_memories`
 
 ### RequirementsContext
 Kiểm tra điều kiện bắt buộc liên tục (polling 3 giây).
@@ -461,7 +461,7 @@ Tài khoản được tạo tự động khi khởi động lần đầu:
 
 | Field | Giá trị |
 |---|---|
-| Email | `demo@memorymap.vn` |
+| Email | `demo@memmori.vn` |
 | Mật khẩu | `123456` |
 | Tên | `Người Dùng Demo` |
 
@@ -507,7 +507,7 @@ Tài khoản được tạo tự động khi khởi động lần đầu:
 - `MapDiscoverScreen.js` — file tồn tại nhưng chưa được dùng trong navigation
 - Quay video (`expo-av`, `expo-camera`) — đã cài package, UI chưa implement
 - Xác thực 2 bước (2FA) — hiển thị thông báo "sắp ra mắt"
-- Xóa tài khoản — không xóa entry trong `@memorymap_users_db`
+- Xóa tài khoản — không xóa entry trong `@memmori_users_db`
 
 ### Giới hạn kỹ thuật
 - Không có backend/server — dữ liệu chỉ tồn tại trên thiết bị hiện tại
@@ -516,7 +516,93 @@ Tài khoản được tạo tự động khi khởi động lần đầu:
 
 ---
 
+## 🗄️ Bản đồ lưu trữ dữ liệu
+
+> Toàn bộ dữ liệu lưu **cục bộ trên thiết bị**, không có server. Mất thiết bị = mất data.
+
+---
+
+### 📦 AsyncStorage (JSON, key-value)
+
+| Key | Lưu gì | Ghi chú |
+|---|---|---|
+| `@memmori_user` | Thông tin user đang đăng nhập (không có password) | Xóa khi đăng xuất |
+| `@memmori_users_db` | Danh sách tất cả tài khoản đã đăng ký (có password plain text) | Không xóa khi đăng xuất |
+| `@memmori_memories` | Toàn bộ kỷ niệm (title, description, mảng URI ảnh, vị trí, tags...) | Lưu chung tất cả user |
+| `@memmori_notifications` | Thông báo in-app (gắn thẻ, kết bạn...) | Lưu chung tất cả user |
+| `@memmori_friends` | Quan hệ bạn bè + lời mời đang chờ (object: `{ [userId]: { friends, requests } }`) | Lưu chung tất cả user |
+| `@memmori_saved_credentials` | Email + password đã lưu của tính năng "Nhớ tài khoản" | Xóa khi chọn quên |
+| `@memmori_language` | Ngôn ngữ đang dùng (`vi` / `en` / `zh`) | |
+| `@memmori_theme` | Chế độ giao diện (`light` / `dark` / `system`) | |
+| `@memmori_accent` | Màu accent đang chọn (vd: `lavender`, `ocean`...) | |
+| `@memmori_settings` | Các cài đặt khác (object JSON) | |
+| `@memmori_session` | Session backup (ít dùng) | |
+
+---
+
+### 🖼️ File ảnh (FileSystem)
+
+| Loại | Nơi lưu | Ghi chú |
+|---|---|---|
+| **Ảnh bài đăng** | `<documentDirectory>/memories/photo_<timestamp>_<random>.jpg` | Copy permanent khi tạo memory, tồn tại sau restart app |
+| **Avatar tài khoản** | URI gốc từ `expo-image-picker` (không copy) | ⚠️ Có thể mất sau restart — chưa được copy về permanent |
+
+> **documentDirectory** trên Android: `/data/user/0/<package>/files/`  
+> **documentDirectory** trên iOS: `<AppSandbox>/Documents/`
+
+---
+
+### 🔐 Mật khẩu
+
+| Nơi | Cách lưu |
+|---|---|
+| `@memmori_users_db` (AsyncStorage) | **Plain text** — phù hợp demo, không dùng production |
+| `@memmori_saved_credentials` (AsyncStorage) | **Plain text** — tính năng "Nhớ tài khoản" |
+| Session (`expo-secure-store`) | Fallback về AsyncStorage nếu SecureStore không khả dụng |
+
+---
+
+### 🌱 Tài khoản Seed (mặc định, luôn tồn tại)
+
+Được merge vào `@memmori_users_db` mỗi lần khởi động app.
+
+| Email | Mật khẩu | Vai trò |
+|---|---|---|
+| `hoangyen24042004@gmail.com` | `yen24042004` | Admin — bỏ qua OTP khi đăng nhập |
+| `demo@memmori.vn` | `123456` | Demo — bỏ qua OTP khi đăng nhập |
+| `anhy0467@gmail.com` | `123456` | User seed — bỏ qua OTP khi đăng nhập |
+
+> Tài khoản seed đăng nhập **không qua OTP**. Tài khoản tự đăng ký phải xác thực OTP.
+
+---
+
+### ⚡ Flow tạo kỷ niệm (có ảnh)
+
+```
+User chụp/chọn ảnh
+  → expo-image-picker trả URI tạm (cache)
+  → copyPhotoToPermanent() copy vào documentDirectory/memories/
+  → URI permanent lưu vào mảng photos[]
+  → addMemory() serialize toàn bộ memory → AsyncStorage @memmori_memories
+```
+
+> ⚠️ Khi **xóa memory**, file ảnh trong FileSystem **không bị xóa** → tích rác theo thời gian.
+
+---
+
+### 🔔 Flow thông báo
+
+```
+Sự kiện xảy ra (gắn thẻ, kết bạn...)
+  → addNotification() tạo object notif
+  → Push vào đầu mảng notifications
+  → Lưu toàn bộ mảng → AsyncStorage @memmori_notifications
+  → Badge đỏ hiện trên icon 🔔 ở ProfileScreen
+```
+
+---
+
 ## 📄 License
 
-Private project — MemoryMap Team  
+Private project — Memmori Team  
 Made with ❤️ in Vietnam

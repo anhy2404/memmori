@@ -1,134 +1,84 @@
-// src/context/MemoryContext.js - Quản lý memories/checkins
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
-const STORAGE_KEY = '@memorymap_memories';
+// src/context/MemoryContext.js - Quản lý memories qua Backend API
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { memoryAPI } from '../services/apiService';
 
 const MemoryContext = createContext(null);
 
 export function MemoryProvider({ children }) {
   const [memories, setMemories] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  // Ref để tránh race condition khi refresh đồng thời
-  const isSavingRef = useRef(false);
-  const pendingSaveRef = useRef(null);
 
   useEffect(() => {
     loadMemories();
   }, []);
 
-  async function loadMemories() {
+  // ===== TẢI MEMORIES =====
+  const loadMemories = useCallback(async () => {
     try {
-      const saved = await AsyncStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        setMemories(Array.isArray(parsed) ? parsed : []);
+      setIsLoading(true);
+      const data = await memoryAPI.getMyMemories(1, 'all');
+      if (data.success) {
+        setMemories(data.memories || []);
       }
-    } catch (error) {
-      console.error('[MemoryContext] Lỗi tải memories:', error);
+    } catch (err) {
+      console.error('[MemoryContext] Lỗi tải memories:', err.message);
     } finally {
       setIsLoading(false);
     }
-  }
-
-  // Lưu với debounce để tránh ghi đè khi nhiều thao tác nhanh
-  async function saveMemories(list) {
-    if (isSavingRef.current) {
-      // Nếu đang lưu, ghi nhớ list mới nhất để lưu sau
-      pendingSaveRef.current = list;
-      return;
-    }
-    isSavingRef.current = true;
-    try {
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(list));
-      // Nếu có pending save, thực hiện ngay
-      if (pendingSaveRef.current) {
-        const pending = pendingSaveRef.current;
-        pendingSaveRef.current = null;
-        await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(pending));
-      }
-    } catch (error) {
-      console.error('[MemoryContext] Lỗi lưu memories:', error);
-      throw new Error('Lưu dữ liệu thất bại');
-    } finally {
-      isSavingRef.current = false;
-    }
-  }
+  }, []);
 
   // ===== THÊM MEMORY =====
   const addMemory = useCallback(async (memoryData) => {
-    const newMemory = {
-      id: `memory_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      title: memoryData.title || '',
-      description: memoryData.description || '',
-      photos: Array.isArray(memoryData.photos) ? memoryData.photos : [],
-      video: memoryData.video || null,
-      location: memoryData.location || null,
-      tags: Array.isArray(memoryData.tags) ? memoryData.tags : [],
-      userId: memoryData.userId || null,
-      aiCaption: memoryData.aiCaption || '',
-      privacy: memoryData.privacy || 'private',
-      taggedUsers: Array.isArray(memoryData.taggedUsers) ? memoryData.taggedUsers : [],
-      ownerName: memoryData.ownerName || '',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-
-    // Tính updatedList trước khi setState để tránh async trong setState updater
-    const updatedList = [newMemory, ...memories];
     try {
-      await saveMemories(updatedList);
-      setMemories(updatedList);
-      return { success: true, memory: newMemory };
+      const data = await memoryAPI.create(memoryData);
+      if (!data.success) throw new Error(data.message);
+      // Thêm vào đầu danh sách local
+      setMemories(prev => [data.memory, ...prev]);
+      return { success: true, memory: data.memory };
     } catch (err) {
-      console.error('[MemoryContext] Lỗi lưu sau addMemory:', err);
-      throw new Error('Lưu kỷ niệm thất bại - kiểm tra bộ nhớ thiết bị');
+      console.error('[MemoryContext] Lỗi tạo memory:', err.message);
+      throw err;
     }
-  }, [memories]);
+  }, []);
 
   // ===== XÓA MEMORY =====
   const deleteMemory = useCallback(async (memoryId) => {
-    const updatedList = memories.filter(m => m.id !== memoryId);
     try {
-      await saveMemories(updatedList);
-      setMemories(updatedList);
+      const data = await memoryAPI.delete(memoryId);
+      if (!data.success) throw new Error(data.message);
+      setMemories(prev => prev.filter(m => (m._id || m.id) !== memoryId));
       return { success: true };
     } catch (err) {
-      console.error('[MemoryContext] Lỗi lưu sau deleteMemory:', err);
-      throw new Error('Xóa kỷ niệm thất bại');
+      console.error('[MemoryContext] Lỗi xóa memory:', err.message);
+      throw err;
     }
-  }, [memories]);
+  }, []);
 
   // ===== CẬP NHẬT MEMORY =====
   const updateMemory = useCallback(async (memoryId, updates) => {
-    // Loại bỏ các field không được phép update trực tiếp
-    const { id: _id, userId: _uid, createdAt: _ca, ...safeUpdates } = updates;
-    const updatedList = memories.map(m =>
-      m.id === memoryId
-        ? { ...m, ...safeUpdates, updatedAt: new Date().toISOString() }
-        : m
-    );
     try {
-      await saveMemories(updatedList);
-      setMemories(updatedList);
+      const data = await memoryAPI.update(memoryId, updates);
+      if (!data.success) throw new Error(data.message);
+      setMemories(prev =>
+        prev.map(m => (m._id || m.id) === memoryId ? { ...m, ...data.memory } : m)
+      );
       return { success: true };
     } catch (err) {
-      console.error('[MemoryContext] Lỗi lưu sau updateMemory:', err);
-      throw new Error('Cập nhật kỷ niệm thất bại');
+      console.error('[MemoryContext] Lỗi cập nhật memory:', err.message);
+      throw err;
     }
-  }, [memories]);
+  }, []);
 
-  // ===== LẤY MEMORIES THEO USER =====
+  // ===== LẤY MEMORIES CỦA MÌNH =====
   const getMyMemories = useCallback((userId) => {
     if (!userId) return [];
-    return memories.filter(m => m.userId === userId);
+    return memories.filter(m => (m.userId?._id || m.userId) === userId || m.userId === userId);
   }, [memories]);
 
   // ===== LẤY MEMORIES CÓ VỊ TRÍ =====
   const getMemoriesWithLocation = useCallback((userId) => {
-    if (!userId) return [];
-    return memories.filter(
-      m => m.userId === userId &&
+    return memories.filter(m =>
+      ((m.userId?._id || m.userId) === userId) &&
       m.location?.lat != null &&
       m.location?.lng != null
     );
@@ -136,75 +86,50 @@ export function MemoryProvider({ children }) {
 
   // ===== LẤY MEMORIES THEO BỘ LỌC =====
   const getFilteredMemories = useCallback((userId, filter = 'all') => {
-    if (!userId) return [];
-    // Hiện: memories của mình (mọi privacy) + memories public của người khác
-    const visibleMemories = memories.filter(m =>
-      m.userId === userId || m.privacy === 'public'
-    );
-    if (filter === 'all') return visibleMemories;
+    const mine = memories.filter(m => (m.userId?._id || m.userId) === userId);
+    const others = memories.filter(m => (m.userId?._id || m.userId) !== userId && m.privacy === 'public');
+    const visible = [...mine, ...others];
+
+    if (filter === 'all') return visible;
 
     const now = Date.now();
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
+    const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
 
     switch (filter) {
-      case 'today':
-        return visibleMemories.filter(m => new Date(m.createdAt) >= todayStart);
-      case 'week': {
-        const weekAgo = now - 7 * 24 * 60 * 60 * 1000;
-        return visibleMemories.filter(m => new Date(m.createdAt).getTime() >= weekAgo);
-      }
+      case 'today': return visible.filter(m => new Date(m.createdAt) >= todayStart);
+      case 'week': return visible.filter(m => new Date(m.createdAt).getTime() >= now - 7 * 24 * 60 * 60 * 1000);
       case 'month': {
-        const monthStart = new Date();
-        monthStart.setDate(1);
-        monthStart.setHours(0, 0, 0, 0);
-        return visibleMemories.filter(m => new Date(m.createdAt) >= monthStart);
+        const s = new Date(); s.setDate(1); s.setHours(0, 0, 0, 0);
+        return visible.filter(m => new Date(m.createdAt) >= s);
       }
-      default:
-        return visibleMemories;
+      default: return visible;
     }
   }, [memories]);
 
   // ===== THỐNG KÊ =====
   const getStats = useCallback((userId) => {
     if (!userId) return { total: 0, locations: 0, thisMonth: 0 };
-    const userMemories = memories.filter(m => m.userId === userId);
-    const monthStart = new Date();
-    monthStart.setDate(1);
-    monthStart.setHours(0, 0, 0, 0);
-
-    const thisMonth = userMemories.filter(m => new Date(m.createdAt) >= monthStart).length;
-    const uniqueLocations = new Set(
-      userMemories
-        .filter(m => m.location?.name)
-        .map(m => m.location.name)
-    ).size;
-
-    return { total: userMemories.length, locations: uniqueLocations, thisMonth };
+    const mine = memories.filter(m => (m.userId?._id || m.userId) === userId);
+    const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
+    const thisMonth = mine.filter(m => new Date(m.createdAt) >= monthStart).length;
+    const uniqueLocations = new Set(mine.filter(m => m.location?.name).map(m => m.location.name)).size;
+    return { total: mine.length, locations: uniqueLocations, thisMonth };
   }, [memories]);
 
   // ===== LẤY 1 MEMORY THEO ID =====
   const getMemoryById = useCallback((memoryId) => {
     if (!memoryId) return null;
-    return memories.find(m => m.id === memoryId) || null;
+    return memories.find(m => (m._id || m.id) === memoryId) || null;
   }, [memories]);
 
-  const contextValue = {
-    memories,
-    isLoading,
-    addMemory,
-    deleteMemory,
-    updateMemory,
-    getMyMemories,
-    getMemoriesWithLocation,
-    getFilteredMemories,
-    getStats,
-    getMemoryById,
-    refreshMemories: loadMemories,
-  };
-
   return (
-    <MemoryContext.Provider value={contextValue}>
+    <MemoryContext.Provider value={{
+      memories, isLoading,
+      addMemory, deleteMemory, updateMemory,
+      getMyMemories, getMemoriesWithLocation,
+      getFilteredMemories, getStats, getMemoryById,
+      refreshMemories: loadMemories,
+    }}>
       {children}
     </MemoryContext.Provider>
   );
@@ -212,9 +137,7 @@ export function MemoryProvider({ children }) {
 
 export function useMemory() {
   const context = useContext(MemoryContext);
-  if (!context) {
-    throw new Error('[MemoryContext] useMemory phải được dùng bên trong MemoryProvider');
-  }
+  if (!context) throw new Error('[MemoryContext] useMemory phải được dùng bên trong MemoryProvider');
   return context;
 }
 

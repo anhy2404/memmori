@@ -278,7 +278,7 @@ function AboutModal({ visible, onClose, theme, t }) {
           <View style={{ width: 72, height: 72, borderRadius: 36, backgroundColor: theme.colors.primary, alignItems: 'center', justifyContent: 'center' }}>
             <Text style={{ fontSize: 36 }}>🗺️</Text>
           </View>
-          <Text style={{ fontSize: 22, fontWeight: '800', color: theme.colors.text }}>MemoryMap</Text>
+          <Text style={{ fontSize: 22, fontWeight: '800', color: theme.colors.text }}>Memmori</Text>
           <Text style={{ fontSize: 14, color: theme.colors.textSecondary, textAlign: 'center', lineHeight: 20 }}>
             {t('settings.appDescription')}
           </Text>
@@ -318,7 +318,7 @@ export default function SettingsScreen({ navigation }) {
 
   async function handleChangePassword(currentPwd, newPwd) {
     // Lấy users từ AsyncStorage và verify password
-    const db = await AsyncStorage.getItem('@memorymap_users_db');
+    const db = await AsyncStorage.getItem('@memmori_users_db');
     const users = db ? JSON.parse(db) : [];
     const found = users.find(u => u.id === user?.id);
     if (!found || found.password !== currentPwd) {
@@ -326,14 +326,14 @@ export default function SettingsScreen({ navigation }) {
     }
     // Cập nhật password mới trong users DB
     const updated = users.map(u => u.id === user?.id ? { ...u, password: newPwd } : u);
-    await AsyncStorage.setItem('@memorymap_users_db', JSON.stringify(updated));
+    await AsyncStorage.setItem('@memmori_users_db', JSON.stringify(updated));
     // Cập nhật credentials đã lưu nếu có
     try {
-      const savedCreds = await AsyncStorage.getItem('@memorymap_saved_credentials');
+      const savedCreds = await AsyncStorage.getItem('@memmori_saved_credentials');
       if (savedCreds) {
         const creds = JSON.parse(savedCreds);
         if (creds.email === user?.email) {
-          await AsyncStorage.setItem('@memorymap_saved_credentials', JSON.stringify({ ...creds, password: newPwd }));
+          await AsyncStorage.setItem('@memmori_saved_credentials', JSON.stringify({ ...creds, password: newPwd }));
         }
       }
     } catch { /* bỏ qua nếu không có credentials đã lưu */ }
@@ -342,10 +342,10 @@ export default function SettingsScreen({ navigation }) {
   function handleFeedback() {
     Alert.alert(
       '💬 Góp ý & Phản hồi',
-      'Cảm ơn bạn muốn góp ý!\n\nLiên hệ: support@memorymap.vn\n\nHoặc để lại đánh giá trên App Store/Google Play.',
+      'Cảm ơn bạn muốn góp ý!\n\nLiên hệ: support@memmori.vn\n\nHoặc để lại đánh giá trên App Store/Google Play.',
       [
         { text: 'Đóng', style: 'cancel' },
-        { text: '📧 Gửi Email', onPress: () => Linking.openURL('mailto:support@memorymap.vn?subject=Góp ý MemoryMap') },
+        { text: '📧 Gửi Email', onPress: () => Linking.openURL('mailto:support@memmori.vn?subject=Góp ý Memmori') },
       ]
     );
   }
@@ -353,13 +353,13 @@ export default function SettingsScreen({ navigation }) {
   function handleRateApp() {
     Alert.alert(
       '⭐ Đánh giá ứng dụng',
-      'Bạn có muốn đánh giá MemoryMap trên cửa hàng ứng dụng không?',
+      'Bạn có muốn đánh giá Memmori trên cửa hàng ứng dụng không?',
       [
         { text: 'Để sau', style: 'cancel' },
         { text: '⭐ Đánh giá ngay', onPress: () => {
           // Link đến Play Store / App Store (dùng expo-linking)
           Linking.openURL('https://play.google.com/store/apps').catch(() => {
-            Alert.alert('Thông báo', 'Cảm ơn bạn đã sử dụng MemoryMap! ❤️');
+            Alert.alert('Thông báo', 'Cảm ơn bạn đã sử dụng Memmori! ❤️');
           });
         }},
       ]
@@ -369,7 +369,7 @@ export default function SettingsScreen({ navigation }) {
   function handlePrivacy() {
     Alert.alert(
       '🔒 Quyền riêng tư',
-      'MemoryMap cam kết bảo vệ quyền riêng tư của bạn:\n\n• Dữ liệu lưu trữ cục bộ trên thiết bị\n• Không chia sẻ thông tin cá nhân với bên thứ ba\n• Ảnh và kỷ niệm thuộc quyền sở hữu của bạn\n• Bạn có thể xóa tài khoản bất kỳ lúc nào',
+      'Memmori cam kết bảo vệ quyền riêng tư của bạn:\n\n• Dữ liệu lưu trữ cục bộ trên thiết bị\n• Không chia sẻ thông tin cá nhân với bên thứ ba\n• Ảnh và kỷ niệm thuộc quyền sở hữu của bạn\n• Bạn có thể xóa tài khoản bất kỳ lúc nào',
       [{ text: 'Đã hiểu', style: 'default' }]
     );
   }
@@ -404,22 +404,22 @@ export default function SettingsScreen({ navigation }) {
                     try {
                       // Xóa toàn bộ data của user và đăng xuất
                       await AsyncStorage.multiRemove([
-                        '@memorymap_user',
-                        '@memorymap_memories',
-                        '@memorymap_saved_credentials',
-                        '@memorymap_language',
-                        '@memorymap_theme',
-                        '@memorymap_accent',
-                        '@memorymap_settings',
-                        '@memorymap_session',
+                        '@memmori_user',
+                        '@memmori_memories',
+                        '@memmori_saved_credentials',
+                        '@memmori_language',
+                        '@memmori_theme',
+                        '@memmori_accent',
+                        '@memmori_settings',
+                        '@memmori_session',
                       ]);
                       // Xóa user khỏi users_db
                       try {
-                        const db = await AsyncStorage.getItem('@memorymap_users_db');
+                        const db = await AsyncStorage.getItem('@memmori_users_db');
                         if (db) {
                           const users = JSON.parse(db);
                           const filtered = users.filter(u => u.id !== user?.id);
-                          await AsyncStorage.setItem('@memorymap_users_db', JSON.stringify(filtered));
+                          await AsyncStorage.setItem('@memmori_users_db', JSON.stringify(filtered));
                         }
                       } catch { /* bỏ qua */ }
                       await logout();
@@ -470,7 +470,7 @@ export default function SettingsScreen({ navigation }) {
         {/* AI Chat - điều hướng thẳng */}
         <SettingGroup title="🤖 Trợ lý AI" theme={theme}>
           <SettingRow
-            icon="🤖" label="Trợ lý MemoryMap AI"
+            icon="🤖" label="Trợ lý Memmori AI"
             value="Hỏi về du lịch Việt Nam"
             onPress={() => navigation.navigate('AIChat')} theme={theme}
           />
@@ -497,7 +497,7 @@ export default function SettingsScreen({ navigation }) {
             value={t('settings.appVersion')}
             onPress={() => setShowAbout(true)} theme={theme}
           />
-          <SettingRow icon="👨‍💻" label={t('settings.developer')} value="MemoryMap Team" theme={theme} showArrow={false} />
+          <SettingRow icon="👨‍💻" label={t('settings.developer')} value="Memmori Team" theme={theme} showArrow={false} />
         </SettingGroup>
 
         {/* Xóa tài khoản */}

@@ -16,6 +16,9 @@ web-build/
 
 # local env files
 .env*.local
+.env
+backend/.env
+.agents/
 
 # typescript
 *.tsbuildinfo

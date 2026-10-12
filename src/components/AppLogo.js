@@ -1,4 +1,4 @@
-// src/components/AppLogo.js - Logo MemoryMap: Camera icon 📷
+// src/components/AppLogo.js - Logo Memmori: Camera icon 📷
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 
@@ -163,7 +163,7 @@ export default function AppLogo({ size = 80, showName = false, nameColor = '#7C5
       {/* Tên app */}
       {showName && (
         <Text style={[styles.appName, { color: nameColor, fontSize: size * 0.28 }]}>
-          MemoryMap
+          Memmori
         </Text>
       )}
     </View>

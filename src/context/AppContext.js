@@ -7,10 +7,10 @@ import { LANGUAGES, DEFAULT_LANGUAGE, t as translate } from '../i18n';
 
 // Khóa lưu trữ trong AsyncStorage
 const STORAGE_KEYS = {
-  LANGUAGE: '@memorymap_language',
-  THEME: '@memorymap_theme',
-  ACCENT: '@memorymap_accent',
-  SETTINGS: '@memorymap_settings',
+  LANGUAGE: '@memmori_language',
+  THEME: '@memmori_theme',
+  ACCENT: '@memmori_accent',
+  SETTINGS: '@memmori_settings',
 };
 
 // Giá trị mặc định của context

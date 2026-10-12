@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * MemoryMap - Script khởi động thông minh
+ * Memmori - Script khởi động thông minh
  * Dùng: node scripts/start.js
  * - Tự động kill process node cũ
  * - Xóa cache Metro
@@ -12,7 +12,7 @@ const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
 
-console.log('🗺️  MemoryMap - Khởi động...\n');
+console.log('🗺️  Memmori - Khởi động...\n');
 
 // 1. Kill node cũ (Windows)
 try {

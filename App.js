@@ -1,4 +1,4 @@
-// App.js - Entry point của ứng dụng MemoryMap
+// App.js - Entry point của ứng dụng Memmori
 import 'react-native-gesture-handler';
 import React from 'react';
 import { StatusBar } from 'expo-status-bar';
@@ -11,6 +11,7 @@ import { AuthProvider } from './src/context/AuthContext';
 import { AppProvider, useApp } from './src/context/AppContext';
 import { MemoryProvider } from './src/context/MemoryContext';
 import { RequirementsProvider } from './src/context/RequirementsContext';
+import { NotificationProvider } from './src/context/NotificationContext';
 
 // Màn hình chặn khi thiếu mạng / GPS
 import RequirementsGate from './src/components/RequirementsGate';
@@ -109,12 +110,14 @@ export default function App() {
           <AppProvider>
             <AuthProvider>
               <MemoryProvider>
+                <NotificationProvider>
                 <ErrorBoundary>
                   {/* RequirementsGate chặn toàn bộ app nếu thiếu mạng hoặc GPS */}
                   <RequirementsGate>
                     <AppContent />
                   </RequirementsGate>
                 </ErrorBoundary>
+                </NotificationProvider>
               </MemoryProvider>
             </AuthProvider>
           </AppProvider>

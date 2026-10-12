@@ -1,4 +1,4 @@
-// src/screens/auth/OTPScreen.js - Màn hình xác thực OTP qua Gmail
+// src/screens/auth/OTPScreen.js - Màn hình xác thực OTP qua Backend API
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
@@ -8,35 +8,33 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
-import { verifyOTP, sendOTP, getOTPRemainingSeconds } from '../../services/otpService';
+import { authAPI } from '../../services/apiService';
 
 const OTP_LENGTH = 6;
-const RESEND_COOLDOWN = 60; // giây chờ trước khi gửi lại
+const RESEND_COOLDOWN = 60;
 
 export default function OTPScreen({ navigation, route }) {
   const { theme, t } = useApp();
-  const { login, register } = useAuth();
+  const { verifyLoginOTP, register } = useAuth();
 
-  // Params truyền từ Login/Register
   const {
     email = '',
     fullName = '',
-    purpose = 'login',   // 'login' | 'register'
-    formData = {},       // Toàn bộ form data để register sau khi verify
-    devOTP = '',         // OTP dev (khi EmailJS chưa cấu hình)
+    purpose = 'login',  // 'login' | 'register'
+    formData = {},
+    devOTP = '',
   } = route.params || {};
 
   const [otp, setOtp]               = useState(['', '', '', '', '', '']);
   const [isVerifying, setVerifying] = useState(false);
   const [isResending, setResending] = useState(false);
   const [countdown, setCountdown]   = useState(RESEND_COOLDOWN);
-  const [devOTPHint, setDevOTPHint] = useState(devOTP); // hiển thị OTP khi EmailJS chưa cấu hình
+  const [devOTPHint, setDevOTPHint] = useState(devOTP);
   const [shakeAnim]                 = useState(new Animated.Value(0));
 
   const inputRefs = useRef([]);
   const timerRef  = useRef(null);
 
-  // Đếm ngược resend cooldown
   useEffect(() => {
     timerRef.current = setInterval(() => {
       setCountdown(prev => {
@@ -47,12 +45,10 @@ export default function OTPScreen({ navigation, route }) {
     return () => clearInterval(timerRef.current);
   }, []);
 
-  // Focus ô đầu tiên khi mount
   useEffect(() => {
     setTimeout(() => inputRefs.current[0]?.focus(), 300);
   }, []);
 
-  // Animation lắc khi OTP sai
   function shakeInputs() {
     Animated.sequence([
       Animated.timing(shakeAnim, { toValue: 10,  duration: 60, useNativeDriver: true }),
@@ -62,9 +58,7 @@ export default function OTPScreen({ navigation, route }) {
     ]).start();
   }
 
-  // Nhập từng ký tự OTP
   function handleOTPInput(text, index) {
-    // Dán toàn bộ 6 số
     if (text.length === OTP_LENGTH && index === 0) {
       const digits = text.replace(/\D/g, '').split('').slice(0, OTP_LENGTH);
       if (digits.length === OTP_LENGTH) {
@@ -73,12 +67,10 @@ export default function OTPScreen({ navigation, route }) {
         return;
       }
     }
-    // Chỉ lấy số
     const digit = text.replace(/\D/g, '').slice(-1);
     const newOtp = [...otp];
     newOtp[index] = digit;
     setOtp(newOtp);
-    // Tự động sang ô tiếp theo
     if (digit && index < OTP_LENGTH - 1) {
       inputRefs.current[index + 1]?.focus();
     }
@@ -90,7 +82,7 @@ export default function OTPScreen({ navigation, route }) {
     }
   }
 
-  // Xác thực OTP
+  // ===== XÁC THỰC OTP QUA API =====
   async function handleVerify() {
     const otpCode = otp.join('');
     if (otpCode.length < OTP_LENGTH) {
@@ -100,46 +92,47 @@ export default function OTPScreen({ navigation, route }) {
 
     setVerifying(true);
     try {
-      const result = verifyOTP(email, otpCode);
-
-      if (!result.valid) {
-        shakeInputs();
-        let msg = t('otp.errorWrong');
-        if (result.reason === 'expired')          msg = t('otp.errorExpired');
-        else if (result.reason === 'tooManyAttempts') msg = t('otp.errorTooMany');
-        else if (result.reason === 'notFound')    msg = t('otp.errorNotFound');
-        Alert.alert(t('otp.errorTitle'), msg);
-        // Reset nếu hết hạn hoặc quá nhiều lần thử
-        if (result.reason === 'expired' || result.reason === 'tooManyAttempts') {
-          setOtp(['', '', '', '', '', '']);
-          inputRefs.current[0]?.focus();
-        }
-        return;
-      }
-
-      // OTP đúng → thực hiện login hoặc register
       if (purpose === 'login') {
-        await login({ email: formData.email, password: formData.password });
+        await verifyLoginOTP({ email, otp: otpCode });
+        // AuthContext tự set isAuthenticated → navigate tự động
       } else {
-        await register({ ...formData });
+        await register({ ...formData, otp: otpCode });
+        // AuthContext tự set isAuthenticated → navigate tự động
       }
-      // Navigation tự động qua AuthContext → isAuthenticated
     } catch (error) {
-      Alert.alert(t('common.error'), error.message);
+      shakeInputs();
+      const msg = error.message || '';
+      if (msg.includes('hết hạn') || msg === 'OTP_EXPIRED') {
+        Alert.alert(t('otp.errorTitle'), t('otp.errorExpired'));
+        setOtp(['', '', '', '', '', '']);
+        inputRefs.current[0]?.focus();
+      } else if (msg.includes('nhiều lần') || msg === 'TOO_MANY_ATTEMPTS') {
+        Alert.alert(t('otp.errorTitle'), t('otp.errorTooMany'));
+        setOtp(['', '', '', '', '', '']);
+        inputRefs.current[0]?.focus();
+      } else if (msg.includes('không đúng') || msg === 'WRONG_OTP') {
+        Alert.alert(t('otp.errorTitle'), t('otp.errorWrong'));
+      } else {
+        Alert.alert(t('common.error'), msg);
+      }
     } finally {
       setVerifying(false);
     }
   }
 
-  // Gửi lại OTP
+  // ===== GỬI LẠI OTP QUA API =====
   async function handleResend() {
     if (countdown > 0) return;
     setResending(true);
     try {
-      const result = await sendOTP(email, fullName, purpose);
-      setDevOTPHint(result.otp || '');
+      let result;
+      if (purpose === 'login') {
+        result = await authAPI.sendLoginOTP(formData.email, formData.password);
+      } else {
+        result = await authAPI.sendRegisterOTP(formData.email, formData.fullName, formData.password);
+      }
+      if (result.devOTP) setDevOTPHint(result.devOTP);
       setCountdown(RESEND_COOLDOWN);
-      // Restart countdown
       clearInterval(timerRef.current);
       timerRef.current = setInterval(() => {
         setCountdown(prev => {
@@ -166,24 +159,20 @@ export default function OTPScreen({ navigation, route }) {
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={s.flex}>
         <ScrollView contentContainerStyle={s.scroll} keyboardShouldPersistTaps="handled">
 
-          {/* Back button */}
           <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()}>
             <Text style={[s.backText, { color: theme.colors.primary }]}>← {t('common.back')}</Text>
           </TouchableOpacity>
 
-          {/* Header */}
           <View style={s.header}>
             <Text style={s.icon}>📧</Text>
             <Text style={[s.title, { color: theme.colors.text }]}>{t('otp.title')}</Text>
             <Text style={[s.subtitle, { color: theme.colors.textSecondary }]}>
               {t('otp.subtitle').replace('{{email}}', maskedEmail)}
             </Text>
-            <Text style={[s.expiry, { color: theme.colors.textSecondary }]}>
-              {t('otp.expiry')}
-            </Text>
+            <Text style={[s.expiry, { color: theme.colors.textSecondary }]}>{t('otp.expiry')}</Text>
           </View>
 
-          {/* Dev hint: hiện OTP khi EmailJS chưa setup */}
+          {/* Dev mode hint */}
           {!!devOTPHint && (
             <TouchableOpacity
               style={[s.devHint, { backgroundColor: theme.colors.highlight, borderColor: theme.colors.primary }]}
@@ -199,7 +188,7 @@ export default function OTPScreen({ navigation, route }) {
             </TouchableOpacity>
           )}
 
-          {/* OTP Input Boxes */}
+          {/* OTP boxes */}
           <Animated.View style={[s.otpRow, { transform: [{ translateX: shakeAnim }] }]}>
             {otp.map((digit, i) => (
               <TextInput
@@ -207,9 +196,11 @@ export default function OTPScreen({ navigation, route }) {
                 ref={ref => { inputRefs.current[i] = ref; }}
                 style={[
                   s.otpBox,
-                  { borderColor: digit ? theme.colors.primary : theme.colors.inputBorder,
+                  {
+                    borderColor: digit ? theme.colors.primary : theme.colors.inputBorder,
                     backgroundColor: theme.colors.inputBackground,
-                    color: theme.colors.text },
+                    color: theme.colors.text,
+                  },
                   digit && { borderWidth: 2.5 },
                 ]}
                 value={digit}
@@ -253,15 +244,12 @@ export default function OTPScreen({ navigation, route }) {
               <TouchableOpacity onPress={handleResend} disabled={isResending}>
                 {isResending
                   ? <ActivityIndicator size="small" color={theme.colors.primary} />
-                  : <Text style={[s.resendLink, { color: theme.colors.primary }]}>
-                      {t('otp.resend')}
-                    </Text>
+                  : <Text style={[s.resendLink, { color: theme.colors.primary }]}>{t('otp.resend')}</Text>
                 }
               </TouchableOpacity>
             )}
           </View>
 
-          {/* Info */}
           <Text style={[s.infoText, { color: theme.colors.textSecondary }]}>
             {t('otp.checkSpam')}
           </Text>
@@ -272,7 +260,6 @@ export default function OTPScreen({ navigation, route }) {
   );
 }
 
-/** che một phần email: abc***@gmail.com */
 function maskEmail(email) {
   if (!email || !email.includes('@')) return email;
   const [local, domain] = email.split('@');
@@ -282,41 +269,30 @@ function maskEmail(email) {
 
 function makeStyles(theme) {
   return StyleSheet.create({
-    container:   { flex: 1, backgroundColor: theme.colors.background },
-    flex:        { flex: 1 },
-    scroll:      { flexGrow: 1, paddingHorizontal: 24, paddingBottom: 40 },
-    backBtn:     { paddingTop: 16, paddingBottom: 8 },
-    backText:    { fontSize: 14, fontWeight: '600' },
-    header:      { alignItems: 'center', paddingVertical: 28 },
-    icon:        { fontSize: 56, marginBottom: 12 },
-    title:       { fontSize: 22, fontWeight: '800', marginBottom: 10, textAlign: 'center' },
-    subtitle:    { fontSize: 14, textAlign: 'center', lineHeight: 22, marginBottom: 6 },
-    expiry:      { fontSize: 12, textAlign: 'center' },
-    devHint: {
-      borderWidth: 1.5, borderRadius: 12, padding: 12,
-      marginBottom: 20, alignItems: 'center',
-    },
+    container: { flex: 1, backgroundColor: theme.colors.background },
+    flex:      { flex: 1 },
+    scroll:    { flexGrow: 1, paddingHorizontal: 24, paddingBottom: 40 },
+    backBtn:   { paddingTop: 16, paddingBottom: 8 },
+    backText:  { fontSize: 14, fontWeight: '600' },
+    header:    { alignItems: 'center', paddingVertical: 28 },
+    icon:      { fontSize: 56, marginBottom: 12 },
+    title:     { fontSize: 22, fontWeight: '800', marginBottom: 10, textAlign: 'center' },
+    subtitle:  { fontSize: 14, textAlign: 'center', lineHeight: 22, marginBottom: 6 },
+    expiry:    { fontSize: 12, textAlign: 'center' },
+    devHint:   { borderWidth: 1.5, borderRadius: 12, padding: 12, marginBottom: 20, alignItems: 'center' },
     devHintText: { fontSize: 13, fontWeight: '600', textAlign: 'center' },
-    otpRow: {
-      flexDirection: 'row', justifyContent: 'space-between',
-      marginHorizontal: 4, marginBottom: 32,
-    },
-    otpBox: {
-      width: 48, height: 60, borderRadius: 14,
-      borderWidth: 1.5, fontSize: 24, fontWeight: '700',
-    },
+    otpRow: { flexDirection: 'row', justifyContent: 'space-between', marginHorizontal: 4, marginBottom: 32 },
+    otpBox: { width: 48, height: 60, borderRadius: 14, borderWidth: 1.5, fontSize: 24, fontWeight: '700' },
     verifyBtn: {
-      height: 52, borderRadius: 14,
-      alignItems: 'center', justifyContent: 'center',
-      shadowColor: '#1A6FD4', shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.3, shadowRadius: 8, elevation: 5,
+      height: 52, borderRadius: 14, alignItems: 'center', justifyContent: 'center',
+      shadowColor: '#1A6FD4', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 5,
     },
-    btnDisabled:    { opacity: 0.55 },
-    verifyBtnText:  { color: '#fff', fontSize: 16, fontWeight: '700' },
-    resendRow:      { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 20 },
-    resendLabel:    { fontSize: 14 },
-    countdown:      { fontSize: 14, fontWeight: '600' },
-    resendLink:     { fontSize: 14, fontWeight: '700' },
-    infoText:       { fontSize: 12, textAlign: 'center', marginTop: 14, lineHeight: 18 },
+    btnDisabled:   { opacity: 0.55 },
+    verifyBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+    resendRow:  { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 20 },
+    resendLabel: { fontSize: 14 },
+    countdown:  { fontSize: 14, fontWeight: '600' },
+    resendLink: { fontSize: 14, fontWeight: '700' },
+    infoText:   { fontSize: 12, textAlign: 'center', marginTop: 14, lineHeight: 18 },
   });
 }

@@ -16,7 +16,7 @@ function getGenAI() {
   return genAI;
 }
 
-const VIETNAM_SYSTEM_PROMPT = `Bạn là MemoryMap AI - trợ lý thông minh của ứng dụng lưu giữ kỷ niệm và khám phá du lịch Việt Nam.
+const VIETNAM_SYSTEM_PROMPT = `Bạn là Memmori AI - trợ lý thông minh của ứng dụng lưu giữ kỷ niệm và khám phá du lịch Việt Nam.
 
 PHONG CÁCH:
 - Thân thiện, nhiệt tình như người bạn đồng hành trong chuyến đi
@@ -261,9 +261,9 @@ function getDemoCaption(context) {
     ? '#' + context.split(',')[0].trim().replace(/\s+/g, '').substring(0, 20)
     : '#memories';
   const captions = [
-    `✨ Những khoảnh khắc đẹp nhất không phải là những khoảnh khắc hoàn hảo nhất, mà là những khoảnh khắc chạm đến trái tim ta. 💕 ${tag} #MemoryMap`,
+    `✨ Những khoảnh khắc đẹp nhất không phải là những khoảnh khắc hoàn hảo nhất, mà là những khoảnh khắc chạm đến trái tim ta. 💕 ${tag} #Memmori`,
     `🌸 Mỗi nơi ta đến đều để lại dấu ấn trong ký ức. Đây là một trong những khoảnh khắc tôi sẽ mãi nhớ... 🗺️ #Vietnam #DuLich`,
-    `📸 Cuộc sống là tập hợp của những kỷ niệm đẹp. Trân trọng từng khoảnh khắc! 💫 #MemoryMap #KyNiem`,
+    `📸 Cuộc sống là tập hợp của những kỷ niệm đẹp. Trân trọng từng khoảnh khắc! 💫 #Memmori #KyNiem`,
   ];
   return captions[Math.floor(Math.random() * captions.length)];
 }

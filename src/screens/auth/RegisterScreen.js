@@ -8,7 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
 import { useApp } from '../../context/AppContext';
 import AppLogo from '../../components/AppLogo';
-import { sendOTP } from '../../services/otpService';
+import { authAPI } from '../../services/apiService';
 import { ACCENT_PRESETS } from '../../theme';
 
 // ===== COLOR PICKER inline =====
@@ -133,8 +133,8 @@ export default function RegisterScreen({ navigation }) {
       // Bước 1: Kiểm tra email chưa được đăng ký
       await checkEmailAvailable(form.email.trim());
 
-      // Bước 2: Gửi OTP
-      const result = await sendOTP(form.email.trim(), form.fullName.trim(), 'register');
+      // Bước 2: Gửi OTP qua API backend
+      const result = await authAPI.sendRegisterOTP(form.email.trim(), form.fullName.trim(), form.password);
 
       // Bước 3: Chuyển sang màn hình OTP
       navigation.navigate('OTP', {
@@ -142,10 +142,31 @@ export default function RegisterScreen({ navigation }) {
         fullName: form.fullName.trim(),
         purpose: 'register',
         formData: { ...form, email: form.email.trim(), fullName: form.fullName.trim() },
-        devOTP: result.otp || '',
+        devOTP: result.devOTP || '',
       });
     } catch (error) {
-      Alert.alert(t('common.error'), error.message || t('auth.errorRegisterFailed'));
+      const msg = error.message || '';
+      if (msg.includes('đã được đăng ký') || msg.includes('EMAIL_EXISTS')) {
+        Alert.alert(
+          '📬 Email đã tồn tại',
+          `Email "${form.email.trim()}" đã có tài khoản.\n\nBạn có muốn đăng nhập không?`,
+          [
+            { text: 'Để sau', style: 'cancel' },
+            {
+              text: '🔐 Đăng nhập ngay',
+              onPress: () => navigation.navigate('Login'),
+            },
+          ]
+        );
+      } else if (msg.includes('Họ') || msg.includes('tên') || msg.includes('fullName')) {
+        setErrors(e => ({ ...e, fullName: msg }));
+      } else if (msg.includes('email') || msg.includes('Email')) {
+        setErrors(e => ({ ...e, email: msg }));
+      } else if (msg.includes('mật khẩu') || msg.includes('password')) {
+        setErrors(e => ({ ...e, password: msg }));
+      } else {
+        Alert.alert('❌ Lỗi đăng ký', msg || t('auth.errorRegisterFailed'));
+      }
     } finally {
       setIsLoading(false);
     }
@@ -160,7 +181,7 @@ export default function RegisterScreen({ navigation }) {
           {/* Header */}
           <View style={styles.header}>
             <AppLogo size={72} showName={false} />
-            <Text style={styles.appName}>MemoryMap</Text>
+            <Text style={styles.appName}>Memmori</Text>
             <Text style={styles.tagline}>🌸 Bắt đầu hành trình kỷ niệm</Text>
             <Text style={styles.title}>{t('auth.createAccount')}</Text>
             <Text style={styles.subtitle}>{t('auth.createSubtitle')}</Text>

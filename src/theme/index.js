@@ -1,4 +1,4 @@
-// src/theme/index.js - MemoryMap Cute Pastel Theme 🌸
+// src/theme/index.js - Memmori Cute Pastel Theme 🌸
 
 // ===== PALETTE =====
 const COLORS = {

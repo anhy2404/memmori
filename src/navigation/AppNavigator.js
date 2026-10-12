@@ -28,6 +28,14 @@ import SettingsScreen from '../screens/settings/SettingsScreen';
 // Memory Detail
 import MemoryDetailScreen from '../screens/main/MemoryDetailScreen';
 
+// Notifications
+import NotificationsScreen from '../screens/main/NotificationsScreen';
+
+// Admin
+import AdminScreen from '../screens/admin/AdminScreen';
+
+import { useNotification } from '../context/NotificationContext';
+
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
@@ -66,6 +74,9 @@ function TabIcon({ emoji, focused, color }) {
 // ===== MAIN TABS =====
 function MainTabs() {
   const { theme, t } = useApp();
+  const { user } = useAuth();
+  const { getUnreadCount } = useNotification();
+  const unreadCount = getUnreadCount(user?.id);
 
   return (
     <Tab.Navigator
@@ -149,7 +160,21 @@ function MainTabs() {
         options={{
           tabBarLabel: t('nav.profile'),
           tabBarIcon: ({ focused, color }) => (
-            <TabIcon emoji="👤" focused={focused} color={color} />
+            <View>
+              <TabIcon emoji="👤" focused={focused} color={color} />
+              {unreadCount > 0 && (
+                <View style={{
+                  position: 'absolute', top: -2, right: -2,
+                  backgroundColor: '#ef4444', borderRadius: 8,
+                  minWidth: 16, height: 16, alignItems: 'center', justifyContent: 'center',
+                  paddingHorizontal: 3,
+                }}>
+                  <Text style={{ color: '#fff', fontSize: 9, fontWeight: '900' }}>
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </Text>
+                </View>
+              )}
+            </View>
           ),
         }}
       />
@@ -222,6 +247,16 @@ function AppStack() {
           headerTintColor: theme.colors.headerText,
           headerBackTitle: '',
         }}
+      />
+      <Stack.Screen
+        name="Notifications"
+        component={NotificationsScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="Admin"
+        component={AdminScreen}
+        options={{ headerShown: false }}
       />
     </Stack.Navigator>
   );
