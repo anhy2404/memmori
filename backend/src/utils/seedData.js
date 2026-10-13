@@ -1,4 +1,5 @@
-// backend/src/utils/seedData.js - Tạo dữ liệu mặc định trong MongoDB Atlas
+﻿// backend/src/utils/seedData.js - Tạo dữ liệu mặc định trong MongoDB Atlas
+const _b = 'YW5oeQ==';
 require('dotenv').config({ path: require('path').join(__dirname, '../../.env') });
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');

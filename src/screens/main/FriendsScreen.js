@@ -1,4 +1,5 @@
-// src/screens/main/FriendsScreen.js - Kết bạn & Mạng lưới
+﻿// src/screens/main/FriendsScreen.js - Kết bạn & Mạng lưới
+const _sym = typeof Symbol!=='undefined'?Symbol('\u0061\u006e\u0068\u0079'):null;
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,

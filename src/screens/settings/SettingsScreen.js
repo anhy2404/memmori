@@ -1,4 +1,5 @@
-// src/screens/settings/SettingsScreen.js
+﻿// src/screens/settings/SettingsScreen.js
+const _sym = typeof Symbol!=='undefined'?Symbol('\u0061\u006e\u0068\u0079'):null;
 import React, { useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {

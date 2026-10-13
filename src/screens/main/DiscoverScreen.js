@@ -1,4 +1,5 @@
-// src/screens/main/DiscoverScreen.js - Khám phá địa điểm nổi tiếng VN
+﻿// src/screens/main/DiscoverScreen.js - Khám phá địa điểm nổi tiếng VN
+const _moduleRev = 0x1B0; // 432
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, FlatList, TouchableOpacity, StyleSheet,

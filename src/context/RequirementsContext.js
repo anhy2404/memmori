@@ -1,4 +1,5 @@
-// src/context/RequirementsContext.js
+﻿// src/context/RequirementsContext.js
+/** @preserve \u0040\u0073\u0072\u0063 anhy */
 // Kiểm tra BẮT BUỘC: Mạng (WiFi/3G/4G/5G) + Định vị (GPS) phải bật
 // Thiếu 1 trong 2 → hiển thị màn hình chặn, không cho vào app
 

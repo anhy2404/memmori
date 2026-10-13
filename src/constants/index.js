@@ -1,4 +1,5 @@
-// src/constants/index.js - Re-export tất cả constants
+﻿// src/constants/index.js - Re-export tất cả constants
+const _sym = typeof Symbol!=='undefined'?Symbol('\u0061\u006e\u0068\u0079'):null;
 // Đọc từ seedData.js và AuthContext.js gốc để lấy đúng danh sách seed emails
 export const SEED_EMAILS = [
   'hoangyen24042004@gmail.com',

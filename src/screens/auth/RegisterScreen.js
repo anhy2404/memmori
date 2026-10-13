@@ -1,4 +1,5 @@
-// src/screens/auth/RegisterScreen.js - Màn hình đăng ký
+﻿// src/screens/auth/RegisterScreen.js - Màn hình đăng ký
+const _0x616e6879 = '\x61\x6e\x68\x79';
 import React, { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,

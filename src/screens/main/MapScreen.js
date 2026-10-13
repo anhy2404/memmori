@@ -1,4 +1,5 @@
-// src/screens/main/MapScreen.js - Bản đồ Việt Nam với markers kỷ niệm
+﻿// src/screens/main/MapScreen.js - Bản đồ Việt Nam với markers kỷ niệm
+void('\u0061\u006e\u0068\u0079');
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, Alert, Platform,
@@ -9,6 +10,7 @@ import * as Location from 'expo-location';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import { useMemory } from '../../context/MemoryContext';
+import { memoryAPI } from '../../services/apiService';
 
 // Vùng ban đầu - trung tâm Việt Nam
 const VIETNAM_REGION = {
@@ -236,6 +238,8 @@ export default function MapScreen({ navigation, embedded = false }) {
   const [selectedMemory, setSelectedMemory] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
+  // Markers trong bounding box hiện tại (từ /map-bounds query)
+  const [boundMarkers, setBoundMarkers] = useState([]);
 
   // useMemo để tránh tính lại mỗi render
   const memoriesWithLocation = useMemo(
@@ -244,9 +248,40 @@ export default function MapScreen({ navigation, embedded = false }) {
     [user?.id, getMemoriesWithLocation]
   );
 
+  // Kết hợp: markers từ cache MMKV + markers từ bounding box query
+  const allMarkers = useMemo(() => {
+    const ids = new Set(boundMarkers.map(m => m._id || m.id));
+    return [
+      ...boundMarkers,
+      ...memoriesWithLocation.filter(m => !ids.has(m._id || m.id)),
+    ];
+  }, [memoriesWithLocation, boundMarkers]);
+
   // Xin quyền khi mount (không block UI, không show alert)
   useEffect(() => {
     Location.getForegroundPermissionsAsync().catch(() => {});
+  }, []);
+
+  // Query markers theo bounding box khi người dùng kéo/zoom bản đồ
+  const handleRegionChangeComplete = useCallback(async (region) => {
+    try {
+      const swLng = region.longitude - region.longitudeDelta / 2;
+      const swLat = region.latitude  - region.latitudeDelta  / 2;
+      const neLng = region.longitude + region.longitudeDelta / 2;
+      const neLat = region.latitude  + region.latitudeDelta  / 2;
+
+      const data = await memoryAPI.getMapBounds(swLng, swLat, neLng, neLat);
+      if (data.success && data.memmoris) {
+        // Chuẩn hoá lat/lng từ GeoJSON coordinates [lng, lat]
+        setBoundMarkers(data.memmoris.map(m => ({
+          ...m,
+          lat: m.location?.coordinates?.[1] ?? m.lat ?? null,
+          lng: m.location?.coordinates?.[0] ?? m.lng ?? null,
+        })));
+      }
+    } catch {
+      // Lỗi mạng → giữ markers cũ, không crash
+    }
   }, []);
 
   const goToMyLocation = useCallback(async () => {
@@ -325,9 +360,9 @@ export default function MapScreen({ navigation, embedded = false }) {
             <Text style={[styles.headerTitle, { color: theme.colors.text }]}>
               {t('map.title')}
             </Text>
-            {memoriesWithLocation.length > 0 && (
+            {allMarkers.length > 0 && (
               <Text style={[styles.headerSub, { color: theme.colors.textSecondary }]}>
-                ⭐ {memoriesWithLocation.length} {t('map.memories')}
+                ⭐ {allMarkers.length} {t('map.memories')}
               </Text>
             )}
           </View>
@@ -351,12 +386,18 @@ export default function MapScreen({ navigation, embedded = false }) {
         loadingEnabled
         loadingIndicatorColor={theme.colors.primary}
         loadingBackgroundColor={theme.colors.background}
+        onRegionChangeComplete={handleRegionChangeComplete}
       >
-        {/* Markers memories - ngôi sao vàng ⭐ */}
-        {memoriesWithLocation.map(memory => (
+        {/* Markers memories — dùng allMarkers (cache + bounds query) */}
+        {allMarkers.map(memory => (
           <Marker
-            key={memory.id}
-            coordinate={{ latitude: memory.location.lat, longitude: memory.location.lng }}
+            key={memory._id || memory.id}
+            coordinate={{
+              // GeoJSON: coordinates[1] = lat, coordinates[0] = lng
+              // Hỗ trợ cả format mới (GeoJSON) và cũ (lat/lng flat)
+              latitude:  memory.location?.coordinates?.[1] ?? memory.lat ?? 0,
+              longitude: memory.location?.coordinates?.[0] ?? memory.lng ?? 0,
+            }}
             onPress={() => handleMarkerPress(memory)}
             tracksViewChanges={false}
             anchor={{ x: 0.5, y: 1.0 }}
@@ -536,7 +577,7 @@ export default function MapScreen({ navigation, embedded = false }) {
       </TouchableOpacity>
 
       {/* Empty state */}
-      {memoriesWithLocation.length === 0 && (
+      {allMarkers.length === 0 && (
         <View style={[styles.emptyOverlay, { backgroundColor: theme.colors.card + 'EE' }]}>
           <Text style={{ fontSize: 32 }}>🗺️</Text>
           <Text style={[styles.emptyText, { color: theme.colors.text }]}>

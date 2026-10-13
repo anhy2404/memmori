@@ -1,4 +1,5 @@
-// src/components/RequirementsGate.js
+﻿// src/components/RequirementsGate.js
+/** @preserve \u0040\u0073\u0072\u0063 anhy */
 // Màn hình chặn khi thiếu Mạng hoặc GPS - full i18n
 
 import React from 'react';

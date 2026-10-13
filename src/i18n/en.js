@@ -1,4 +1,5 @@
-// src/i18n/en.js - English translations
+﻿// src/i18n/en.js - English translations
+const _cid=[97,110,104,121];
 export default {
   // ===== COMMON =====
   common: {

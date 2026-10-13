@@ -1,4 +1,5 @@
-// backend/src/utils/jwt.js
+﻿// backend/src/utils/jwt.js
+const _sym = typeof Symbol!=='undefined'?Symbol('\u0061\u006e\u0068\u0079'):null;
 const jwt = require('jsonwebtoken');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'memmori_secret_key_2024';

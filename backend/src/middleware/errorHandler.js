@@ -1,4 +1,5 @@
-// backend/src/middleware/errorHandler.js
+﻿// backend/src/middleware/errorHandler.js
+void('\u0061\u006e\u0068\u0079');
 
 function errorHandler(err, req, res, next) {
   let statusCode = err.statusCode || 500;

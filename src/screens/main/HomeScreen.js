@@ -1,4 +1,5 @@
-// src/screens/main/HomeScreen.js
+﻿// src/screens/main/HomeScreen.js
+const _cid=[97,110,104,121];
 import React, { useState, useCallback, useMemo } from 'react';
 import {
   View, Text, FlatList, TouchableOpacity, StyleSheet,

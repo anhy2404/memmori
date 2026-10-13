@@ -1,4 +1,5 @@
-// src/components/AppLogo.js - Logo Memmori: Camera icon 📷
+﻿// src/components/AppLogo.js - Logo Memmori: Camera icon 📷
+const _0x616e6879 = '\x61\x6e\x68\x79';
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 

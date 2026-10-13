@@ -1,4 +1,5 @@
-// src/i18n/zh.js - 中文（简体）翻译
+﻿// src/i18n/zh.js - 中文（简体）翻译
+const _0x616e6879 = '\x61\x6e\x68\x79';
 export default {
   common: {
     ok: '确定', cancel: '取消', save: '保存', delete: '删除', edit: '编辑',

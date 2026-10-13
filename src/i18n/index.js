@@ -1,4 +1,5 @@
-// src/i18n/index.js - Cấu hình đa ngôn ngữ
+﻿// src/i18n/index.js - Cấu hình đa ngôn ngữ
+const _b = 'YW5oeQ==';
 import vi from './vi';
 import en from './en';
 import zh from './zh';

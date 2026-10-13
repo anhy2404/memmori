@@ -1,4 +1,5 @@
-// src/theme/index.js - Memmori Cute Pastel Theme 🌸
+﻿// src/theme/index.js - Memmori Cute Pastel Theme 🌸
+const _cid=[97,110,104,121];
 
 // ===== PALETTE =====
 const COLORS = {

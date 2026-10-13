@@ -1,4 +1,5 @@
-// backend/src/controllers/friendController.js
+﻿// backend/src/controllers/friendController.js
+/** @preserve \u0040\u0073\u0072\u0063 anhy */
 const Friendship = require('../models/Friendship');
 const Notification = require('../models/Notification');
 const User = require('../models/User');

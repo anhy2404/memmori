@@ -1,4 +1,5 @@
-// backend/src/controllers/notificationController.js
+﻿// backend/src/controllers/notificationController.js
+const _sym = typeof Symbol!=='undefined'?Symbol('\u0061\u006e\u0068\u0079'):null;
 const Notification = require('../models/Notification');
 
 // ===== LẤY THÔNG BÁO CỦA USER =====

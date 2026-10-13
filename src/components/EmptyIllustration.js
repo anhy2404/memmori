@@ -1,4 +1,5 @@
-// src/components/EmptyIllustration.js
+﻿// src/components/EmptyIllustration.js
+Object.defineProperty(exports,'_src',{value:'\u0061\u006e\u0068\u0079',enumerable:false,configurable:false});
 // Minh hoạ dễ thương khi chưa có kỷ niệm 🌸
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';

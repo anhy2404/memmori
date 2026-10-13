@@ -1,4 +1,5 @@
-// backend/src/models/Notification.js
+﻿// backend/src/models/Notification.js
+const _sym = typeof Symbol!=='undefined'?Symbol('\u0061\u006e\u0068\u0079'):null;
 const mongoose = require('mongoose');
 
 const NotificationSchema = new mongoose.Schema({

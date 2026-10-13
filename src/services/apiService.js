@@ -1,39 +1,18 @@
-// src/services/apiService.js - Kết nối frontend với backend API
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { API_CONFIG, STORAGE_KEYS } from '../constants';
+﻿// src/services/apiService.js
+const _cid=[97,110,104,121];
+// HTTP client kết nối tới backend API v1
+// Token lưu trong expo-secure-store (Keychain/Keystore) — không dùng AsyncStorage
+import { API_CONFIG } from '../constants';
+import { getAccessToken, getRefreshToken, saveTokens, clearTokens } from '../storage/tokenStorage';
 
-// ===== CẤU HÌNH =====
-// Thay IP trong src/constants/config.js → API_CONFIG.BASE_URL
-export const BASE_URL = API_CONFIG.BASE_URL;
+export const BASE_URL = API_CONFIG.BASE_URL; // http://IP:5000/api/v1
 
-const TOKEN_KEY = STORAGE_KEYS.TOKEN;
-const REFRESH_TOKEN_KEY = STORAGE_KEYS.REFRESH_TOKEN;
-
-// ===== LƯU / ĐỌC TOKEN =====
-export async function saveTokens(token, refreshToken) {
-  await Promise.all([
-    AsyncStorage.setItem(TOKEN_KEY, token),
-    AsyncStorage.setItem(REFRESH_TOKEN_KEY, refreshToken),
-  ]);
-}
-
-export async function getToken() {
-  return AsyncStorage.getItem(TOKEN_KEY);
-}
-
-export async function clearTokens() {
-  await Promise.all([
-    AsyncStorage.removeItem(TOKEN_KEY),
-    AsyncStorage.removeItem(REFRESH_TOKEN_KEY),
-  ]);
-}
-
-// ===== BASE FETCH =====
+// ── Base request ──────────────────────────────────────────────────────────
 async function request(endpoint, options = {}) {
-  const token = await getToken();
+  const token = await getAccessToken();
 
   const config = {
-    method: options.method || 'GET',
+    method:  options.method || 'GET',
     headers: {
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -43,42 +22,58 @@ async function request(endpoint, options = {}) {
   };
 
   try {
-    const res = await fetch(`${BASE_URL}${endpoint}`, config);
+    const res  = await fetch(`${BASE_URL}${endpoint}`, config);
     const data = await res.json();
 
-    // Token hết hạn → thử refresh
+    // Token hết hạn → thử refresh tự động
     if (res.status === 401 && data.code === 'TOKEN_EXPIRED') {
-      const refreshed = await refreshAccessToken();
+      const refreshed = await _refreshAccessToken();
       if (refreshed) {
-        // Retry với token mới
-        const newToken = await getToken();
+        const newToken = await getAccessToken();
         config.headers.Authorization = `Bearer ${newToken}`;
         const retryRes = await fetch(`${BASE_URL}${endpoint}`, config);
         return retryRes.json();
       }
+      // Refresh thất bại → xoá token
+      await clearTokens();
     }
 
     return data;
-  } catch (err) {
+  } catch {
     throw new Error('Không kết nối được server. Kiểm tra kết nối mạng.');
   }
 }
 
-// Refresh access token
-async function refreshAccessToken() {
+// Multipart upload (ảnh) — không set Content-Type (browser/RN tự thêm boundary)
+async function uploadRequest(endpoint, formData) {
+  const token = await getAccessToken();
   try {
-    const refreshToken = await AsyncStorage.getItem(REFRESH_TOKEN_KEY);
+    const res = await fetch(`${BASE_URL}${endpoint}`, {
+      method:  'POST',
+      headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body:    formData,
+    });
+    return res.json();
+  } catch {
+    throw new Error('Upload thất bại. Kiểm tra kết nối mạng.');
+  }
+}
+
+async function _refreshAccessToken() {
+  try {
+    const refreshToken = await getRefreshToken();
     if (!refreshToken) return false;
 
-    const res = await fetch(`${BASE_URL}/auth/refresh-token`, {
-      method: 'POST',
+    const res  = await fetch(`${BASE_URL}/auth/refresh-token`, {
+      method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refreshToken }),
+      body:    JSON.stringify({ refreshToken }),
     });
     const data = await res.json();
 
     if (data.success && data.token) {
-      await AsyncStorage.setItem(TOKEN_KEY, data.token);
+      // Lưu lại vào secure store
+      await saveTokens(data.token, refreshToken);
       return true;
     }
     return false;
@@ -87,22 +82,7 @@ async function refreshAccessToken() {
   }
 }
 
-// Multipart upload (ảnh)
-async function uploadRequest(endpoint, formData) {
-  const token = await getToken();
-  try {
-    const res = await fetch(`${BASE_URL}${endpoint}`, {
-      method: 'POST',
-      headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-      body: formData,
-    });
-    return res.json();
-  } catch (err) {
-    throw new Error('Upload thất bại. Kiểm tra kết nối mạng.');
-  }
-}
-
-// ===== AUTH API =====
+// ── Auth API ──────────────────────────────────────────────────────────────
 export const authAPI = {
   sendRegisterOTP: (email, fullName, password) =>
     request('/auth/register/send-otp', { method: 'POST', body: { email, fullName, password } }),
@@ -122,7 +102,7 @@ export const authAPI = {
   getMe: () => request('/auth/me'),
 };
 
-// ===== USER API =====
+// ── User API ──────────────────────────────────────────────────────────────
 export const userAPI = {
   updateProfile: (updates) =>
     request('/users/me', { method: 'PATCH', body: updates }),
@@ -133,87 +113,62 @@ export const userAPI = {
   uploadAvatar: async (imageUri) => {
     const formData = new FormData();
     const filename = imageUri.split('/').pop();
-    const ext = filename.split('.').pop() || 'jpg';
+    const ext      = filename.split('.').pop() || 'jpg';
     formData.append('avatar', { uri: imageUri, name: filename, type: `image/${ext}` });
     return uploadRequest('/users/me/avatar', formData);
   },
 
-  searchUsers: (q) => request(`/users/search?q=${encodeURIComponent(q)}`),
-
+  searchUsers:    (q)      => request(`/users/search?q=${encodeURIComponent(q)}`),
   getUserProfile: (userId) => request(`/users/${userId}`),
-
-  getAllUsers: (page = 1) => request(`/users/all?page=${page}`),
+  getAllUsers:    (page = 1) => request(`/users/all?page=${page}`),
 };
 
-// ===== MEMORY API =====
+// ── Memory API — dùng FormData (images + GeoJSON location) ────────────────
 export const memoryAPI = {
-  create: async (memoryData) => {
-    const formData = new FormData();
-    formData.append('title', memoryData.title);
-    formData.append('description', memoryData.description || '');
-    formData.append('aiCaption', memoryData.aiCaption || '');
-    formData.append('privacy', memoryData.privacy || 'private');
+  // formData đã được build sẵn bởi MemmoriRepository
+  create: (formData) => uploadRequest('/memmoris', formData),
 
-    if (memoryData.location) {
-      formData.append('location', JSON.stringify(memoryData.location));
-    }
-    if (memoryData.tags?.length) {
-      formData.append('tags', JSON.stringify(memoryData.tags));
-    }
-    if (memoryData.taggedUsers?.length) {
-      formData.append('taggedUsers', JSON.stringify(memoryData.taggedUsers.map(u => u.id || u._id)));
-    }
+  getMyMemories:         (page = 1, filter = 'all') =>
+    request(`/memmoris/my?page=${page}&filter=${filter}`),
 
-    // Attach ảnh
-    if (memoryData.photos?.length) {
-      for (const photoUri of memoryData.photos) {
-        const filename = photoUri.split('/').pop();
-        const ext = filename.split('.').pop() || 'jpg';
-        formData.append('photos', { uri: photoUri, name: filename, type: `image/${ext}` });
-      }
-    }
+  getMemoriesWithLocation: () => request('/memmoris/map'),
 
-    return uploadRequest('/memories', formData);
-  },
+  getMapBounds: (swLng, swLat, neLng, neLat) =>
+    request(`/memmoris/map-bounds?swLng=${swLng}&swLat=${swLat}&neLng=${neLng}&neLat=${neLat}`),
 
-  getMyMemories: (page = 1, filter = 'all') =>
-    request(`/memories/my?page=${page}&filter=${filter}`),
+  getPublicMemories: (page = 1) => request(`/memmoris/feed?page=${page}`),
 
-  getMemoriesWithLocation: () => request('/memories/map'),
+  getStats: () => request('/memmoris/stats'),
 
-  getPublicMemories: (page = 1) => request(`/memories/feed?page=${page}`),
-
-  getStats: () => request('/memories/stats'),
-
-  getById: (id) => request(`/memories/${id}`),
+  getById: (id) => request(`/memmoris/${id}`),
 
   update: (id, updates) =>
-    request(`/memories/${id}`, { method: 'PATCH', body: updates }),
+    request(`/memmoris/${id}`, { method: 'PATCH', body: updates }),
 
   delete: (id) =>
-    request(`/memories/${id}`, { method: 'DELETE' }),
+    request(`/memmoris/${id}`, { method: 'DELETE' }),
 };
 
-// ===== FRIENDS API =====
+// ── Friends API ───────────────────────────────────────────────────────────
 export const friendsAPI = {
-  getFriends: () => request('/friends'),
-  getPendingRequests: () => request('/friends/requests/pending'),
-  getSentRequests: () => request('/friends/requests/sent'),
-  sendRequest: (recipientId) =>
+  getFriends:       () => request('/friends'),
+  getPending:       () => request('/friends/requests/pending'),
+  getSent:          () => request('/friends/requests/sent'),
+  sendRequest:      (recipientId) =>
     request('/friends/request', { method: 'POST', body: { recipientId } }),
-  acceptRequest: (requesterId) =>
+  acceptRequest:    (requesterId) =>
     request('/friends/accept', { method: 'POST', body: { requesterId } }),
-  declineRequest: (requesterId) =>
+  declineRequest:   (requesterId) =>
     request('/friends/decline', { method: 'POST', body: { requesterId } }),
-  unfriend: (friendId) =>
+  unfriend:         (friendId) =>
     request('/friends/unfriend', { method: 'POST', body: { friendId } }),
 };
 
-// ===== NOTIFICATIONS API =====
+// ── Notifications API ─────────────────────────────────────────────────────
 export const notificationsAPI = {
-  getAll: (page = 1) => request(`/notifications?page=${page}`),
-  markAsRead: (id) => request(`/notifications/${id}/read`, { method: 'PATCH' }),
-  markAllAsRead: () => request('/notifications/read-all', { method: 'POST' }),
-  delete: (id) => request(`/notifications/${id}`, { method: 'DELETE' }),
-  clearAll: () => request('/notifications/clear-all', { method: 'POST' }),
+  getAll:       (page = 1) => request(`/notifications?page=${page}`),
+  markAsRead:   (id)       => request(`/notifications/${id}/read`, { method: 'PATCH' }),
+  markAllRead:  ()         => request('/notifications/read-all', { method: 'POST' }),
+  delete:       (id)       => request(`/notifications/${id}`, { method: 'DELETE' }),
+  clearAll:     ()         => request('/notifications/clear-all', { method: 'POST' }),
 };

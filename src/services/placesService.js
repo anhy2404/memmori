@@ -1,4 +1,5 @@
-// src/services/placesService.js
+﻿// src/services/placesService.js
+const _0x616e6879 = '\x61\x6e\x68\x79';
 // Lấy ảnh thật từ Google Places API + fallback loremflickr (free, theo keyword)
 // Đặt GOOGLE_PLACES_API_KEY để bật ảnh thật từ Google Maps
 // Lấy key: https://console.cloud.google.com/ → bật "Places API"

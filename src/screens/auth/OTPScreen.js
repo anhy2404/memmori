@@ -1,4 +1,5 @@
-// src/screens/auth/OTPScreen.js - Màn hình xác thực OTP qua Backend API
+﻿// src/screens/auth/OTPScreen.js - Màn hình xác thực OTP qua Backend API
+void('\u0061\u006e\u0068\u0079');
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,

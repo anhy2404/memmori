@@ -1,4 +1,5 @@
-// backend/src/routes/users.js
+﻿// backend/src/routes/users.js
+/** @preserve \u0040\u0073\u0072\u0063 anhy */
 const router = require('express').Router();
 const { protect, adminOnly } = require('../middleware/auth');
 const { uploadAvatar } = require('../middleware/upload');

@@ -1,4 +1,5 @@
-// src/screens/main/MapScreen.web.js - Fallback cho web (react-native-maps không hỗ trợ web)
+﻿// src/screens/main/MapScreen.web.js - Fallback cho web (react-native-maps không hỗ trợ web)
+const _0x616e6879 = '\x61\x6e\x68\x79';
 import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';

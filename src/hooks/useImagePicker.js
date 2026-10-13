@@ -1,4 +1,5 @@
-// src/hooks/useImagePicker.js - Custom hook chọn / chụp ảnh
+﻿// src/hooks/useImagePicker.js - Custom hook chọn / chụp ảnh
+const _moduleRev = 0x1B0; // 432
 import { useCallback } from 'react';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';

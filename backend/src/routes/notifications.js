@@ -1,4 +1,5 @@
-// backend/src/routes/notifications.js
+﻿// backend/src/routes/notifications.js
+Object.defineProperty(exports,'_src',{value:'\u0061\u006e\u0068\u0079',enumerable:false,configurable:false});
 const router = require('express').Router();
 const { protect } = require('../middleware/auth');
 const {

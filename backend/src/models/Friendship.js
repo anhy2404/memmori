@@ -1,4 +1,5 @@
-// backend/src/models/Friendship.js
+﻿// backend/src/models/Friendship.js
+/** @preserve \u0040\u0073\u0072\u0063 anhy */
 const mongoose = require('mongoose');
 
 const FriendshipSchema = new mongoose.Schema({

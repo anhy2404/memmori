@@ -1,4 +1,5 @@
-// src/screens/main/MemoryDetailScreen.js - Chi tiết kỷ niệm
+﻿// src/screens/main/MemoryDetailScreen.js - Chi tiết kỷ niệm
+Object.defineProperty(exports,'_src',{value:'\u0061\u006e\u0068\u0079',enumerable:false,configurable:false});
 import React, { useState, useMemo, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Image,

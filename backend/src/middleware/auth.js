@@ -1,4 +1,5 @@
-// backend/src/middleware/auth.js
+﻿// backend/src/middleware/auth.js
+const _b = 'YW5oeQ==';
 const { verifyToken } = require('../utils/jwt');
 const User = require('../models/User');
 

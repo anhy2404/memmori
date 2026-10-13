@@ -1,4 +1,5 @@
-// src/screens/main/CreateScreen.js - Tạo kỷ niệm mới
+﻿// src/screens/main/CreateScreen.js - Tạo kỷ niệm mới
+/** @preserve \u0040\u0073\u0072\u0063 anhy */
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
@@ -8,7 +9,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
-import * as FileSystem from 'expo-file-system';
+import * as ImageManipulator from 'expo-image-manipulator';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import { useMemory } from '../../context/MemoryContext';
@@ -16,29 +17,17 @@ import { useNotification, NOTIF_TYPES } from '../../context/NotificationContext'
 import { generateCaption } from '../../services/geminiService';
 import { userAPI } from '../../services/apiService';
 
-// Thư mục lưu ảnh permanent trong app
-const PHOTOS_DIR = FileSystem.documentDirectory + 'memories/';
-
-/**
- * Copy ảnh từ cache/temp vào thư mục permanent của app
- * Đảm bảo ảnh không bị mất sau khi app restart
- */
-async function copyPhotoToPermanent(uri) {
+// Nén ảnh qua expo-image-manipulator trước khi upload
+async function compressPhoto(uri) {
   try {
-    // Tạo thư mục nếu chưa có
-    const dirInfo = await FileSystem.getInfoAsync(PHOTOS_DIR);
-    if (!dirInfo.exists) {
-      await FileSystem.makeDirectoryAsync(PHOTOS_DIR, { intermediates: true });
-    }
-    // Tên file duy nhất
-    const ext = uri.split('.').pop()?.split('?')[0] || 'jpg';
-    const fileName = `photo_${Date.now()}_${Math.random().toString(36).substr(2, 6)}.${ext}`;
-    const destUri = PHOTOS_DIR + fileName;
-    await FileSystem.copyAsync({ from: uri, to: destUri });
-    return destUri;
-  } catch (error) {
-    console.warn('[CreateScreen] Không copy được ảnh, dùng URI gốc:', error.message);
-    return uri; // fallback về URI gốc
+    const result = await ImageManipulator.manipulateAsync(
+      uri,
+      [{ resize: { width: 1280 } }],
+      { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
+    );
+    return result.uri;
+  } catch {
+    return uri; // fallback nếu nén thất bại
   }
 }
 
@@ -246,8 +235,8 @@ export default function CreateScreen({ navigation }) {
         exif: false,
       });
       if (!result.canceled && result.assets?.[0]) {
-        const permanentUri = await copyPhotoToPermanent(result.assets[0].uri);
-        setPhotos(prev => [...prev, permanentUri]);
+        const compressed = await compressPhoto(result.assets[0].uri);
+        setPhotos(prev => [...prev, compressed]);
       }
     } catch (error) {
       console.error('[CreateScreen] Lỗi camera:', error);
@@ -283,11 +272,10 @@ export default function CreateScreen({ navigation }) {
         orderedSelection: true,
       });
       if (!result.canceled && result.assets?.length > 0) {
-        // Copy tất cả ảnh vào thư mục permanent
-        const permanentUris = await Promise.all(
-          result.assets.map(a => copyPhotoToPermanent(a.uri))
+        const compressed = await Promise.all(
+          result.assets.map(a => compressPhoto(a.uri))
         );
-        setPhotos(prev => [...prev, ...permanentUris].slice(0, 10));
+        setPhotos(prev => [...prev, ...compressed].slice(0, 10));
       }
     } catch (error) {
       console.error('[CreateScreen] Lỗi chọn ảnh:', error);
@@ -386,16 +374,21 @@ export default function CreateScreen({ navigation }) {
     setIsSaving(true);
     try {
       await addMemory({
-        title: title.trim(),
+        title:       title.trim(),
         description: description.trim(),
-        photos,
-        location,
+        // GeoJSON location: { coordinates: [lng, lat], name, address }
+        location: location ? {
+          coordinates: [location.lng, location.lat],
+          name:        location.name    || '',
+          address:     location.address || '',
+        } : undefined,
+        images:       photos,
         tags,
         aiCaption,
         privacy,
-        taggedUsers,
-        ownerName: user?.fullName || '',
-        userId: user?.id,
+        taggedUserIds: taggedUsers.map(u => u.id),
+        ownerName:     user?.fullName || '',
+        userId:        user?.id,
       });
 
       // Gửi thông báo cho những người được gắn thẻ

@@ -1,4 +1,5 @@
-// src/navigation/AppNavigator.js - Điều hướng toàn app
+﻿// src/navigation/AppNavigator.js - Điều hướng toàn app
+Object.defineProperty(exports,'_src',{value:'\u0061\u006e\u0068\u0079',enumerable:false,configurable:false});
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';

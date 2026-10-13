@@ -1,72 +1,100 @@
-// backend/src/controllers/memoryController.js
-const Memory = require('../models/Memory');
-const Friendship = require('../models/Friendship');
+﻿// backend/src/controllers/memoryController.js
+const _moduleRev = 0x1B0; // 432
+// Luồng: JWT verify → Zod validate → Cloudinary upload → MongoDB GeoJSON insert
+const Memmori      = require('../models/Memory');
+const Friendship   = require('../models/Friendship');
 const Notification = require('../models/Notification');
-const path = require('path');
-const fs = require('fs');
+const { uploadManyBuffers } = require('../services/cloudStorageService');
 
-// ===== TẠO MEMORY =====
-exports.createMemory = async (req, res, next) => {
+// Helper: parse JSON string an toàn
+function safeParse(str, fallback) {
+  try { return str ? JSON.parse(str) : fallback; } catch { return fallback; }
+}
+
+// ── TẠO MEMMORI ─────────────────────────────────────────────────────────
+// POST /api/v1/memmoris
+exports.createMemmori = async (req, res, next) => {
   try {
-    const { title, description, location, tags, aiCaption, privacy, taggedUsers } = req.body;
-
-    // Xử lý ảnh upload
-    const photos = req.files?.map(f => `${process.env.BASE_URL}/uploads/memories/${f.filename}`) || [];
+    const { title, description, aiCaption, privacy } = req.body;
 
     // Parse JSON fields từ FormData
-    let parsedLocation = null;
-    let parsedTags = [];
-    let parsedTaggedUsers = [];
+    const locationRaw     = safeParse(req.body.location, null);
+    const tags            = safeParse(req.body.tags, []);
+    const taggedUserIds   = safeParse(req.body.taggedUserIds, []);
 
-    try { parsedLocation = location ? JSON.parse(location) : null; } catch {}
-    try { parsedTags = tags ? JSON.parse(tags) : []; } catch {}
-    try { parsedTaggedUsers = taggedUsers ? JSON.parse(taggedUsers) : []; } catch {}
+    // Build GeoJSON Point: coordinates = [lng, lat]
+    let geoPoint   = null;
+    let locationMeta = { name: '', address: '' };
 
-    const memory = await Memory.create({
-      userId: req.user._id,
-      ownerName: req.user.fullName,
-      title: title.trim(),
-      description: description?.trim() || '',
-      photos,
-      location: parsedLocation,
-      tags: parsedTags,
-      aiCaption: aiCaption || '',
-      privacy: privacy || 'private',
-      taggedUsers: parsedTaggedUsers,
+    if (locationRaw?.coordinates?.length === 2) {
+      // Client đã gửi đúng GeoJSON format { coordinates: [lng, lat], name, address }
+      geoPoint = { type: 'Point', coordinates: locationRaw.coordinates };
+      locationMeta = {
+        name:    locationRaw.name    || '',
+        address: locationRaw.address || '',
+      };
+    } else if (locationRaw?.lat != null && locationRaw?.lng != null) {
+      // Client cũ gửi { lat, lng } → tự chuyển sang GeoJSON
+      geoPoint = { type: 'Point', coordinates: [locationRaw.lng, locationRaw.lat] };
+      locationMeta = {
+        name:    locationRaw.name    || '',
+        address: locationRaw.address || '',
+      };
+    }
+
+    // Upload ảnh lên Cloudinary (stream buffer — không lưu disk)
+    let imageUrls = [];
+    if (req.files?.length > 0) {
+      const buffers = req.files.map(f => f.buffer);
+      imageUrls = await uploadManyBuffers(buffers, 'memmori/memories');
+    }
+
+    const memmori = await Memmori.create({
+      userId:       req.user._id,
+      ownerName:    req.user.fullName,
+      title:        title.trim(),
+      description:  description?.trim() || '',
+      aiCaption:    aiCaption || '',
+      privacy:      privacy || 'private',
+      images:       imageUrls,
+      location:     geoPoint,
+      locationMeta,
+      tags,
+      taggedUserIds,
     });
 
-    // Gửi thông báo cho những người được tag
-    if (parsedTaggedUsers.length > 0) {
-      const notifPromises = parsedTaggedUsers.map(userId =>
+    // Thông báo tag người dùng
+    if (taggedUserIds.length > 0) {
+      const notifPromises = taggedUserIds.map(uid =>
         Notification.create({
-          targetUserId: userId,
-          fromUser: { id: req.user._id, fullName: req.user.fullName, avatar: req.user.avatar },
-          type: 'MEMORY_TAGGED',
-          title: 'Bạn được gắn thẻ trong kỷ niệm 🏷️',
-          body: `${req.user.fullName} đã gắn thẻ bạn trong "${title.trim()}"`,
-          data: { memoryId: memory._id },
+          targetUserId: uid,
+          fromUser:     { id: req.user._id, fullName: req.user.fullName, avatar: req.user.avatar },
+          type:         'MEMORY_TAGGED',
+          title:        'Bạn được gắn thẻ trong kỷ niệm 🏷️',
+          body:         `${req.user.fullName} đã gắn thẻ bạn trong "${title.trim()}"`,
+          data:         { memmoriId: memmori._id },
         })
       );
       await Promise.allSettled(notifPromises);
     }
 
-    res.status(201).json({ success: true, memory });
+    res.status(201).json({ success: true, memmori });
   } catch (err) {
     next(err);
   }
 };
 
-// ===== LẤY MEMORIES CỦA MÌNH =====
-exports.getMyMemories = async (req, res, next) => {
+// ── LẤY MEMMORIS CỦA MÌNH ────────────────────────────────────────────────
+// GET /api/v1/memmoris/my
+exports.getMyMemmoris = async (req, res, next) => {
   try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 20;
-    const skip = (page - 1) * limit;
+    const page   = parseInt(req.query.page)  || 1;
+    const limit  = parseInt(req.query.limit) || 20;
+    const skip   = (page - 1) * limit;
     const filter = req.query.filter || 'all';
 
     const query = { userId: req.user._id, isDeleted: false };
 
-    // Lọc theo thời gian
     if (filter === 'today') {
       const start = new Date(); start.setHours(0, 0, 0, 0);
       query.createdAt = { $gte: start };
@@ -77,45 +105,84 @@ exports.getMyMemories = async (req, res, next) => {
       query.createdAt = { $gte: start };
     }
 
-    const [memories, total] = await Promise.all([
-      Memory.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit),
-      Memory.countDocuments(query),
+    const [memmoris, total] = await Promise.all([
+      Memmori.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit),
+      Memmori.countDocuments(query),
     ]);
 
-    res.json({ success: true, memories, total, page, pages: Math.ceil(total / limit) });
+    res.json({ success: true, memmoris, total, page, pages: Math.ceil(total / limit) });
   } catch (err) {
     next(err);
   }
 };
 
-// ===== LẤY MEMORIES CÓ VỊ TRÍ =====
-exports.getMemoriesWithLocation = async (req, res, next) => {
+// ── LẤY MARKERS TRONG BOUNDING BOX (BẢN ĐỒ) ────────────────────────────
+// GET /api/v1/memmoris/map-bounds?swLng=&swLat=&neLng=&neLat=
+// Query GeoJSON $geoWithin $box — sử dụng 2dsphere index
+exports.getMapBounds = async (req, res, next) => {
   try {
-    const memories = await Memory.find({
-      userId: req.user._id,
+    const { swLng, swLat, neLng, neLat } = req.query;
+
+    // Lấy memmoris có vị trí trong bounding box của bản đồ
+    // $box nhận [[swLng, swLat], [neLng, neLat]] theo chuẩn GeoJSON
+    const memmoris = await Memmori.find({
+      userId:    req.user._id,
       isDeleted: false,
-      'location.lat': { $ne: null },
-      'location.lng': { $ne: null },
-    }).select('title photos location createdAt privacy');
+      location: {
+        $geoWithin: {
+          $box: [
+            [parseFloat(swLng), parseFloat(swLat)],
+            [parseFloat(neLng), parseFloat(neLat)],
+          ],
+        },
+      },
+    })
+      .select('title images location locationMeta createdAt privacy')
+      .limit(200);
 
-    res.json({ success: true, memories });
+    res.json({ success: true, memmoris });
   } catch (err) {
     next(err);
   }
 };
 
-// ===== LẤY MEMORIES PUBLIC (Discover / Feed) =====
-exports.getPublicMemories = async (req, res, next) => {
+// ── LẤY TẤT CẢ MARKERS CÓ VỊ TRÍ (MAP VIEW) ────────────────────────────
+// GET /api/v1/memmoris/map
+exports.getMapMemmoris = async (req, res, next) => {
   try {
-    const page = parseInt(req.query.page) || 1;
+    const memmoris = await Memmori.find({
+      userId:    req.user._id,
+      isDeleted: false,
+      location:  { $ne: null },
+    })
+      .select('title images location locationMeta createdAt privacy')
+      .lean();
+
+    // Thêm lat/lng tiện lợi cho frontend
+    const result = memmoris.map(m => ({
+      ...m,
+      lat: m.location?.coordinates?.[1] ?? null,
+      lng: m.location?.coordinates?.[0] ?? null,
+    }));
+
+    res.json({ success: true, memmoris: result });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ── FEED CÔNG KHAI / BẠN BÈ ─────────────────────────────────────────────
+// GET /api/v1/memmoris/feed
+exports.getFeed = async (req, res, next) => {
+  try {
+    const page  = parseInt(req.query.page)  || 1;
     const limit = parseInt(req.query.limit) || 20;
-    const skip = (page - 1) * limit;
+    const skip  = (page - 1) * limit;
 
-    // Lấy memories public + memories của bạn bè (friends privacy)
-    const friends = await Friendship.getFriends(req.user._id);
-    const friendIds = friends.map(f => f._id);
+    const friends    = await Friendship.getFriends(req.user._id);
+    const friendIds  = friends.map(f => f._id);
 
-    const memories = await Memory.find({
+    const memmoris = await Memmori.find({
       isDeleted: false,
       $or: [
         { privacy: 'public' },
@@ -128,86 +195,93 @@ exports.getPublicMemories = async (req, res, next) => {
       .limit(limit)
       .populate('userId', 'fullName avatar');
 
-    res.json({ success: true, memories });
+    res.json({ success: true, memmoris });
   } catch (err) {
     next(err);
   }
 };
 
-// ===== LẤY 1 MEMORY THEO ID =====
-exports.getMemoryById = async (req, res, next) => {
+// ── LẤY 1 MEMMORI ────────────────────────────────────────────────────────
+// GET /api/v1/memmoris/:id
+exports.getMemmoriById = async (req, res, next) => {
   try {
-    const memory = await Memory.findOne({ _id: req.params.id, isDeleted: false })
-      .populate('userId', 'fullName avatar')
-      .populate('taggedUsers', 'fullName avatar');
+    const memmori = await Memmori
+      .findOne({ _id: req.params.id, isDeleted: false })
+      .populate('userId',       'fullName avatar')
+      .populate('taggedUserIds','fullName avatar');
 
-    if (!memory) {
+    if (!memmori) {
       return res.status(404).json({ success: false, message: 'Kỷ niệm không tồn tại' });
     }
 
-    // Kiểm tra quyền xem
-    const isOwner = memory.userId._id.equals(req.user._id);
-    const isFriend = await Friendship.areFriends(req.user._id, memory.userId._id);
-    if (!isOwner && memory.privacy === 'private') {
+    const isOwner  = memmori.userId._id.equals(req.user._id);
+    const isFriend = await Friendship.areFriends(req.user._id, memmori.userId._id);
+
+    if (!isOwner && memmori.privacy === 'private') {
       return res.status(403).json({ success: false, message: 'Không có quyền xem' });
     }
-    if (!isOwner && memory.privacy === 'friends' && !isFriend) {
+    if (!isOwner && memmori.privacy === 'friends' && !isFriend) {
       return res.status(403).json({ success: false, message: 'Chỉ bạn bè mới xem được' });
     }
 
-    res.json({ success: true, memory });
+    res.json({ success: true, memmori });
   } catch (err) {
     next(err);
   }
 };
 
-// ===== CẬP NHẬT MEMORY =====
-exports.updateMemory = async (req, res, next) => {
+// ── CẬP NHẬT MEMMORI ─────────────────────────────────────────────────────
+// PATCH /api/v1/memmoris/:id
+exports.updateMemmori = async (req, res, next) => {
   try {
-    const memory = await Memory.findOne({ _id: req.params.id, isDeleted: false });
-    if (!memory) {
+    const memmori = await Memmori.findOne({ _id: req.params.id, isDeleted: false });
+    if (!memmori) {
       return res.status(404).json({ success: false, message: 'Kỷ niệm không tồn tại' });
     }
-    if (!memory.userId.equals(req.user._id)) {
+    if (!memmori.userId.equals(req.user._id)) {
       return res.status(403).json({ success: false, message: 'Không có quyền chỉnh sửa' });
     }
 
-    const allowed = ['title', 'description', 'tags', 'aiCaption', 'privacy', 'location', 'taggedUsers'];
+    const allowed = ['title', 'description', 'tags', 'aiCaption', 'privacy', 'taggedUserIds'];
     allowed.forEach(field => {
-      if (req.body[field] !== undefined) memory[field] = req.body[field];
+      if (req.body[field] !== undefined) memmori[field] = req.body[field];
     });
 
-    await memory.save();
-    res.json({ success: true, memory });
+    // Cập nhật vị trí GeoJSON nếu có
+    if (req.body.location) {
+      const loc = req.body.location;
+      if (loc.coordinates?.length === 2) {
+        memmori.location     = { type: 'Point', coordinates: loc.coordinates };
+        memmori.locationMeta = { name: loc.name || '', address: loc.address || '' };
+      }
+    }
+
+    await memmori.save();
+    res.json({ success: true, memmori });
   } catch (err) {
     next(err);
   }
 };
 
-// ===== XÓA MEMORY =====
-exports.deleteMemory = async (req, res, next) => {
+// ── XÓA MEMMORI (soft delete) ─────────────────────────────────────────────
+// DELETE /api/v1/memmoris/:id
+exports.deleteMemmori = async (req, res, next) => {
   try {
-    const memory = await Memory.findOne({ _id: req.params.id, isDeleted: false });
-    if (!memory) {
+    const memmori = await Memmori.findOne({ _id: req.params.id, isDeleted: false });
+    if (!memmori) {
       return res.status(404).json({ success: false, message: 'Kỷ niệm không tồn tại' });
     }
 
-    const isOwner = memory.userId.equals(req.user._id);
+    const isOwner = memmori.userId.equals(req.user._id);
     const isAdmin = req.user.role === 'admin';
     if (!isOwner && !isAdmin) {
       return res.status(403).json({ success: false, message: 'Không có quyền xóa' });
     }
 
-    // Soft delete
-    memory.isDeleted = true;
-    await memory.save();
+    memmori.isDeleted = true;
+    await memmori.save();
 
-    // Xóa file ảnh
-    memory.photos.forEach(photoUrl => {
-      const filename = path.basename(photoUrl);
-      const filePath = path.join(__dirname, '../../uploads/memories', filename);
-      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-    });
+    // TODO: xoá ảnh trên Cloudinary nếu cần (giữ lại để tránh mất ảnh khi undo)
 
     res.json({ success: true, message: 'Đã xóa kỷ niệm' });
   } catch (err) {
@@ -215,22 +289,23 @@ exports.deleteMemory = async (req, res, next) => {
   }
 };
 
-// ===== THỐNG KÊ =====
+// ── THỐNG KÊ ─────────────────────────────────────────────────────────────
+// GET /api/v1/memmoris/stats
 exports.getStats = async (req, res, next) => {
   try {
-    const userId = req.user._id;
+    const userId     = req.user._id;
     const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
 
     const [total, thisMonth, withLocation] = await Promise.all([
-      Memory.countDocuments({ userId, isDeleted: false }),
-      Memory.countDocuments({ userId, isDeleted: false, createdAt: { $gte: monthStart } }),
-      Memory.countDocuments({ userId, isDeleted: false, 'location.lat': { $ne: null } }),
+      Memmori.countDocuments({ userId, isDeleted: false }),
+      Memmori.countDocuments({ userId, isDeleted: false, createdAt: { $gte: monthStart } }),
+      Memmori.countDocuments({ userId, isDeleted: false, location: { $ne: null } }),
     ]);
 
-    // Unique locations
-    const locationDocs = await Memory.find({ userId, isDeleted: false, 'location.name': { $ne: '' } })
-      .select('location.name');
-    const uniqueLocations = new Set(locationDocs.map(m => m.location?.name)).size;
+    const locationDocs = await Memmori
+      .find({ userId, isDeleted: false, 'locationMeta.name': { $ne: '' } })
+      .select('locationMeta.name');
+    const uniqueLocations = new Set(locationDocs.map(m => m.locationMeta?.name)).size;
 
     res.json({ success: true, stats: { total, thisMonth, locations: uniqueLocations, withLocation } });
   } catch (err) {

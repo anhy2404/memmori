@@ -1,4 +1,5 @@
-// backend/src/config/database.js - Kết nối MongoDB tách biệt
+﻿// backend/src/config/database.js - Kết nối MongoDB tách biệt
+void('\u0061\u006e\u0068\u0079');
 const mongoose = require('mongoose');
 
 /**

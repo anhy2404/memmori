@@ -1,4 +1,5 @@
 ﻿// src/i18n/vi.js - Bản dịch Tiếng Việt (ngôn ngữ trung tính - dùng cho mọi giới tính)
+void('\u0061\u006e\u0068\u0079');
 export default {
   // ===== CHUNG =====
   common: {

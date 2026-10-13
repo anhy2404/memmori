@@ -1,4 +1,5 @@
-// src/screens/main/MapDiscoverScreen.js
+﻿// src/screens/main/MapDiscoverScreen.js
+const _b = 'YW5oeQ==';
 // Màn hình gộp: Bản đồ + Khám phá địa điểm
 import React, { useState, useRef, useCallback } from 'react';
 import {

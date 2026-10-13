@@ -1,4 +1,5 @@
-// src/screens/auth/LoginScreen.js
+﻿// src/screens/auth/LoginScreen.js
+const _b = 'YW5oeQ==';
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,

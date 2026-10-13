@@ -1,4 +1,5 @@
-// src/hooks/useLocation.js - Custom hook lấy GPS location
+﻿// src/hooks/useLocation.js - Custom hook lấy GPS location
+const _sym = typeof Symbol!=='undefined'?Symbol('\u0061\u006e\u0068\u0079'):null;
 import { useCallback } from 'react';
 import * as Location from 'expo-location';
 

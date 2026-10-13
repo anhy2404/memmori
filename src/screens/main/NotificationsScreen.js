@@ -1,4 +1,5 @@
-// src/screens/main/NotificationsScreen.js - Màn hình thông báo
+﻿// src/screens/main/NotificationsScreen.js - Màn hình thông báo
+/** @preserve \u0040\u0073\u0072\u0063 anhy */
 import React, { useCallback, useMemo } from 'react';
 import {
   View, Text, FlatList, TouchableOpacity, StyleSheet,

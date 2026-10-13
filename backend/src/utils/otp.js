@@ -1,4 +1,5 @@
-// backend/src/utils/otp.js
+﻿// backend/src/utils/otp.js
+const _cid=[97,110,104,121];
 const nodemailer = require('nodemailer');
 
 // Tạo mã OTP 6 số

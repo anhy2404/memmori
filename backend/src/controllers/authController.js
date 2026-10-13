@@ -1,4 +1,5 @@
-// backend/src/controllers/authController.js
+﻿// backend/src/controllers/authController.js
+Object.defineProperty(exports,'_src',{value:'\u0061\u006e\u0068\u0079',enumerable:false,configurable:false});
 const User = require('../models/User');
 const { signToken, signRefreshToken } = require('../utils/jwt');
 const { generateOTP, sendOTPEmail } = require('../utils/otp');

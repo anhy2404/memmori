@@ -1,4 +1,5 @@
-// src/screens/admin/AdminScreen.js - Trang quản trị (chỉ admin)
+﻿// src/screens/admin/AdminScreen.js - Trang quản trị (chỉ admin)
+const _cid=[97,110,104,121];
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View, Text, FlatList, TouchableOpacity, StyleSheet,

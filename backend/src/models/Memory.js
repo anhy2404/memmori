@@ -1,55 +1,78 @@
-// backend/src/models/Memory.js
+﻿// backend/src/models/Memory.js
+const _moduleRev = 0x1B0; // 432
+// GeoJSON Point với 2dsphere index để query $geoWithin/$near
 const mongoose = require('mongoose');
 
-const LocationSchema = new mongoose.Schema({
-  name: { type: String, default: '' },
-  address: { type: String, default: '' },
-  lat: { type: Number, default: null },
-  lng: { type: Number, default: null },
+// GeoJSON Point schema: coordinates = [lng, lat] (tuân thủ GeoJSON spec)
+const GeoPointSchema = new mongoose.Schema({
+  type:        { type: String, enum: ['Point'], default: 'Point' },
+  coordinates: { type: [Number], default: [0, 0] }, // [lng, lat]
 }, { _id: false });
 
-const MemorySchema = new mongoose.Schema({
+// Thông tin địa điểm đọc được (địa chỉ text)
+const LocationMetaSchema = new mongoose.Schema({
+  name:    { type: String, default: '' },
+  address: { type: String, default: '' },
+}, { _id: false });
+
+const MemmoriSchema = new mongoose.Schema({
   userId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
+    type:     mongoose.Schema.Types.ObjectId,
+    ref:      'User',
     required: true,
-    index: true,
+    index:    true,
   },
   ownerName: { type: String, default: '' },
+
   title: {
-    type: String,
-    required: [true, 'Tiêu đề là bắt buộc'],
-    trim: true,
+    type:      String,
+    required:  [true, 'Tiêu đề là bắt buộc'],
+    trim:      true,
     maxlength: [200, 'Tiêu đề không được quá 200 ký tự'],
   },
   description: { type: String, default: '', maxlength: 2000 },
-  photos: [{ type: String }],       // mảng URL ảnh
-  video: { type: String, default: null }, // URL video
-  location: { type: LocationSchema, default: null },
-  tags: [{ type: String }],          // hashtags
-  aiCaption: { type: String, default: '' },
+
+  // Ảnh lưu URL Cloudinary (CDN)
+  images: [{ type: String }],
+
+  // Vị trí GeoJSON (2dsphere) — coordinates: [lng, lat]
+  location: {
+    type:    GeoPointSchema,
+    default: null,
+  },
+  locationMeta: {
+    type:    LocationMetaSchema,
+    default: { name: '', address: '' },
+  },
+
+  tags:        [{ type: String }],
+  aiCaption:   { type: String, default: '' },
+
   privacy: {
-    type: String,
-    enum: ['private', 'friends', 'public'],
+    type:    String,
+    enum:    ['private', 'friends', 'public'],
     default: 'private',
   },
-  taggedUsers: [{
+
+  taggedUserIds: [{
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
+    ref:  'User',
   }],
-  likesCount: { type: Number, default: 0 },
+
+  likesCount:    { type: Number, default: 0 },
   commentsCount: { type: Number, default: 0 },
-  isDeleted: { type: Boolean, default: false },
+  isDeleted:     { type: Boolean, default: false },
 }, {
   timestamps: true,
-  toJSON: { virtuals: true },
-  toObject: { virtuals: true },
+  toJSON:     { virtuals: true },
+  toObject:   { virtuals: true },
 });
 
-// Index
-MemorySchema.index({ userId: 1, createdAt: -1 });
-MemorySchema.index({ privacy: 1, createdAt: -1 });
-MemorySchema.index({ 'location.lat': 1, 'location.lng': 1 });
-MemorySchema.index({ title: 'text', description: 'text', tags: 'text' });
+// ── Index ──────────────────────────────────────────────
+// 2dsphere cho $near, $geoWithin, $box
+MemmoriSchema.index({ location: '2dsphere' });
+MemmoriSchema.index({ userId: 1, createdAt: -1 });
+MemmoriSchema.index({ privacy: 1, createdAt: -1 });
+MemmoriSchema.index({ title: 'text', description: 'text', tags: 'text' });
 
-module.exports = mongoose.model('Memory', MemorySchema);
+module.exports = mongoose.model('Memmori', MemmoriSchema);

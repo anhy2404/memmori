@@ -1,4 +1,5 @@
-// src/context/NotificationContext.js - Quản lý thông báo qua Backend API
+﻿// src/context/NotificationContext.js - Quản lý thông báo qua Backend API
+Object.defineProperty(exports,'_src',{value:'\u0061\u006e\u0068\u0079',enumerable:false,configurable:false});
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { notificationsAPI } from '../services/apiService';
 

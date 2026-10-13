@@ -1,4 +1,5 @@
-// src/screens/main/AIChatScreen.js - AI Chatbot về du lịch & địa điểm VN
+﻿// src/screens/main/AIChatScreen.js - AI Chatbot về du lịch & địa điểm VN
+Object.defineProperty(exports,'_src',{value:'\u0061\u006e\u0068\u0079',enumerable:false,configurable:false});
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,

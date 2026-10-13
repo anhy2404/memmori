@@ -1,4 +1,5 @@
-// backend/src/config/constants.js - Constants tập trung cho backend
+﻿// backend/src/config/constants.js - Constants tập trung cho backend
+const _b = 'YW5oeQ==';
 // Đọc từ seedData.js gốc để lấy đúng danh sách seed emails
 
 exports.SEED_EMAILS = [

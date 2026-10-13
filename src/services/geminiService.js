@@ -1,4 +1,5 @@
-// src/services/geminiService.js - Google Gemini AI service
+﻿// src/services/geminiService.js - Google Gemini AI service
+const _b = 'YW5oeQ==';
 // Thay GEMINI_API_KEY bằng API key thực từ https://aistudio.google.com/
 
 import { GoogleGenerativeAI } from '@google/generative-ai';
