@@ -91,7 +91,7 @@ const cpStyles = StyleSheet.create({
 });
 
 export default function RegisterScreen({ navigation }) {
-  const { register, checkEmailAvailable } = useAuth();
+  const { register } = useAuth();
   const { theme, t, accentColor, setAccentColor } = useApp();
 
   const [form, setForm] = useState({ fullName: '', email: '', password: '', confirmPassword: '', phonenumber: '', gender: '' });
@@ -131,10 +131,7 @@ export default function RegisterScreen({ navigation }) {
     if (!validate()) return;
     setIsLoading(true);
     try {
-      // Bước 1: Kiểm tra email chưa được đăng ký
-      await checkEmailAvailable(form.email.trim());
-
-      // Bước 2: Gửi OTP qua API backend
+      // Backend tự kiểm tra email trùng và trả lỗi nếu đã tồn tại
       const result = await authAPI.sendRegisterOTP(form.email.trim(), form.fullName.trim(), form.password);
 
       // Bước 3: Chuyển sang màn hình OTP

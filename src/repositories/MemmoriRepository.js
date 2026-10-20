@@ -34,7 +34,8 @@ export async function fetchMyMemmoris(page = 1, filter = 'all') {
   const data = await memoryAPI.getMyMemories(page, filter);
   if (!data.success) throw new Error(data.message);
 
-  const memmoris = data.memmoris || [];
+  // Normalize ID: đảm bảo mỗi object luôn có cả `_id` lẫn `id` dạng string
+  const memmoris = (data.memmoris || []).map(normalizeId);
 
   // Ghi vào MMKV để offline render
   if (page === 1) {
@@ -87,11 +88,14 @@ export async function createMemmori(input) {
   const data = await memoryAPI.create(formData);
   if (!data.success) throw new Error(data.message);
 
+  // Normalize ID trước khi lưu vào cache
+  const normalized = normalizeId(data.memmori);
+
   // Cập nhật MMKV cache (thêm vào đầu danh sách)
   const cached = await getCachedMemmoris();
-  await mmkvSet(CACHE_KEYS.MEMMORIS, [data.memmori, ...cached]);
+  await mmkvSet(CACHE_KEYS.MEMMORIS, [normalized, ...cached]);
 
-  return data.memmori;
+  return normalized;
 }
 
 // ── Xoá memmori ──────────────────────────────────────────────────────────
@@ -121,11 +125,38 @@ export async function updateMemmori(memmoriId, updates) {
 // ── Helpers ───────────────────────────────────────────────────────────────
 function _id(m) { return m._id || m.id; }
 
+// Chuẩn hoá ID: thêm field `id` (string) song song với `_id` để tránh lẫn lộn
+// Đồng thời map các field backend → frontend:
+//   images[]      → photos[]          (backend lưu 'images', frontend đọc 'photos')
+//   locationMeta  → location.address/name (flatten vào object location hiện có)
+function normalizeId(m) {
+  const idStr = m._id ? m._id.toString() : (m.id ? m.id.toString() : null);
+
+  // Flatten locationMeta vào location để frontend dùng location.address / location.name
+  let location = m.location || null;
+  if (location && m.locationMeta) {
+    location = {
+      ...location,
+      name:    m.locationMeta.name    || location.name    || '',
+      address: m.locationMeta.address || location.address || '',
+    };
+  }
+
+  return {
+    ...m,
+    _id:    idStr,
+    id:     idStr,
+    // Frontend dùng memory.photos — map từ images (tên field của MongoDB model)
+    photos: m.images   || m.photos   || [],
+    location,
+  };
+}
+
 // Chuẩn hoá marker: bổ sung lat/lng tiện cho MapView
 function normalizeMarker(m) {
   const coords = m.location?.coordinates;
   return {
-    ...m,
+    ...normalizeId(m),
     lat: coords?.[1] ?? m.lat ?? null,
     lng: coords?.[0] ?? m.lng ?? null,
   };

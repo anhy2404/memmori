@@ -54,9 +54,13 @@ export function AuthProvider({ children }) {
 
     // Legacy helpers (không dùng Zustand bên dưới — giữ API cũ)
     checkCredentials: async ({ email, password }) => {
-      const result = await store.login({ email, password });
-      // Nếu không cần OTP → đây là seed account, đã login rồi
-      return { success: true, fullName: result.user?.fullName || '' };
+      try {
+        const result = await store.login({ email, password });
+        return { success: true, fullName: result.user?.fullName || '' };
+      } catch (err) {
+        // Trả về object thay vì throw để caller không cần bắt exception
+        return { success: false, message: err.message || 'Đăng nhập thất bại' };
+      }
     },
   };
 

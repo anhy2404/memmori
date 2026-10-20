@@ -3,6 +3,10 @@
 const router = require('express').Router();
 const { protect, adminOnly } = require('../middleware/auth');
 const { uploadAvatar } = require('../middleware/upload');
+const { validate } = require('../middleware/validate');
+const {
+  updateProfileSchema, changePasswordSchema,
+} = require('../config/schemas');
 const {
   updateProfile, changePassword, uploadAvatar: uploadAvatarCtrl,
   searchUsers, getUserProfile, getAllUsers,
@@ -13,8 +17,8 @@ router.use(protect); // tất cả routes cần auth
 router.get('/search', searchUsers);
 router.get('/all', adminOnly, getAllUsers);
 router.get('/:userId', getUserProfile);
-router.patch('/me', updateProfile);
-router.patch('/me/password', changePassword);
+router.patch('/me',          validate(updateProfileSchema),  updateProfile);
+router.patch('/me/password', validate(changePasswordSchema), changePassword);
 router.post('/me/avatar', uploadAvatar.single('avatar'), uploadAvatarCtrl);
 
 module.exports = router;

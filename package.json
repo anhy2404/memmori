@@ -8,7 +8,13 @@
     "start:tunnel": "npx expo start --tunnel --clear",
     "start:web": "npx expo start --web",
     "android": "npx expo start --android",
-    "ios": "npx expo start --ios"
+    "ios": "npx expo start --ios",
+    "build:android": "eas build --platform android --profile preview",
+    "build:ios": "eas build --platform ios --profile preview",
+    "build:ios:testflight": "eas build --platform ios --profile testflight",
+    "submit:ios": "eas submit --platform ios",
+    "build:all": "eas build --platform all --profile preview",
+    "build:dev": "eas build --platform android --profile development"
   },
   "dependencies": {
     "@expo/metro-runtime": "~57.0.15",
@@ -37,6 +43,7 @@
     "react-native-reanimated": "4.5.1",
     "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "~4.26.0",
+    "react-native-svg": "15.15.4",
     "react-native-web": "^0.21.0",
     "react-native-worklets": "0.10.1",
     "zod": "^4.6.6",

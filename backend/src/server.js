@@ -41,7 +41,21 @@ app.set('connectedUsers', connectedUsers);
 
 // ── MIDDLEWARE ───────────────────────────────────────────
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
-app.use(cors({ origin: '*', credentials: true }));
+app.use(cors({
+  // Đổi CLIENT_URL trong .env khi chuyển mạng (IP Expo Metro)
+  // React Native không phải browser nên wildcard vẫn hoạt động, nhưng
+  // dùng explicit origin khi production để giới hạn rõ ràng
+  origin: (origin, callback) => {
+    const allowed = process.env.CLIENT_URL;
+    // Cho qua nếu: không có origin (mobile app native) hoặc khớp CLIENT_URL
+    if (!origin || !allowed || origin === allowed) {
+      callback(null, true);
+    } else {
+      callback(new Error('CORS: origin không được phép'));
+    }
+  },
+  credentials: true,
+}));
 app.use(morgan('dev'));
 app.use(express.json({ limit: '20mb' }));
 app.use(express.urlencoded({ extended: true, limit: '20mb' }));
@@ -61,6 +75,8 @@ const otpLimiter = rateLimit({
 app.use('/api/v1/', limiter);
 app.use('/api/v1/auth/register/send-otp', otpLimiter);
 app.use('/api/v1/auth/login/send-otp',    otpLimiter);
+// loginDirect (seed accounts) cũng cần rate limit riêng — tránh brute-force password
+app.use('/api/v1/auth/login/direct',      otpLimiter);
 
 // ── ROUTES /api/v1/ ──────────────────────────────────────
 app.use('/api/v1/auth',          require('./routes/auth'));

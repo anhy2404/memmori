@@ -7,14 +7,15 @@ import {
   Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
 import { useAuth } from '../../context/AuthContext';
 import { useApp } from '../../context/AppContext';
 import AppLogo from '../../components/AppLogo';
 import { SEED_EMAILS } from '../../constants';
 
 const { width } = Dimensions.get('window');
-const SAVED_CREDENTIALS_KEY = '@memmori_saved_credentials';
+// Lưu credentials trong Keychain/Keystore — mã hoá phần cứng
+const SAVED_CREDENTIALS_KEY = 'memmori_saved_credentials';
 
 export default function LoginScreen({ navigation }) {
   const { login } = useAuth();
@@ -34,7 +35,7 @@ export default function LoginScreen({ navigation }) {
       setErrors({});
       setShowPwd(false);
       try {
-        const saved = await AsyncStorage.getItem(SAVED_CREDENTIALS_KEY);
+        const saved = await SecureStore.getItemAsync(SAVED_CREDENTIALS_KEY);
         if (saved) {
           const { email: savedEmail, password: savedPwd } = JSON.parse(saved);
           setEmail(savedEmail || '');
@@ -74,7 +75,7 @@ export default function LoginScreen({ navigation }) {
       // Seed account → đăng nhập thẳng xong
       if (result.success && !result.requireOTP) {
         if (rememberMe) {
-          await AsyncStorage.setItem(SAVED_CREDENTIALS_KEY, JSON.stringify({
+          await SecureStore.setItemAsync(SAVED_CREDENTIALS_KEY, JSON.stringify({
             email: email.trim(), password,
           }));
         }
@@ -84,7 +85,7 @@ export default function LoginScreen({ navigation }) {
       // Tài khoản thường → cần OTP
       if (result.requireOTP) {
         if (rememberMe) {
-          await AsyncStorage.setItem(SAVED_CREDENTIALS_KEY, JSON.stringify({
+          await SecureStore.setItemAsync(SAVED_CREDENTIALS_KEY, JSON.stringify({
             email: email.trim(), password,
           }));
         } else if (!hasSaved) {
@@ -92,11 +93,11 @@ export default function LoginScreen({ navigation }) {
             '🔐 Nhớ tài khoản',
             'Bạn có muốn lưu email và mật khẩu để đăng nhập nhanh lần sau không?',
             [
-              { text: 'Không', style: 'cancel', onPress: () => AsyncStorage.removeItem(SAVED_CREDENTIALS_KEY) },
+              { text: 'Không', style: 'cancel', onPress: () => SecureStore.deleteItemAsync(SAVED_CREDENTIALS_KEY) },
               {
                 text: 'Lưu lại ✓',
                 onPress: async () => {
-                  await AsyncStorage.setItem(SAVED_CREDENTIALS_KEY, JSON.stringify({ email: email.trim(), password }));
+                  await SecureStore.setItemAsync(SAVED_CREDENTIALS_KEY, JSON.stringify({ email: email.trim(), password }));
                   setRememberMe(true);
                   setHasSaved(true);
                 },
@@ -137,7 +138,7 @@ export default function LoginScreen({ navigation }) {
   }
 
   async function handleForgetSaved() {
-    await AsyncStorage.removeItem(SAVED_CREDENTIALS_KEY);
+    await SecureStore.deleteItemAsync(SAVED_CREDENTIALS_KEY);
     setEmail(''); setPassword('');
     setRememberMe(false); setHasSaved(false);
   }

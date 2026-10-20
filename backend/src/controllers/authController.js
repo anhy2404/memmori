@@ -9,9 +9,9 @@ exports.sendRegisterOTP = async (req, res, next) => {
   try {
     const { email, fullName, password } = req.body;
 
-    // Kiểm tra email đã tồn tại chưa
+    // Kiểm tra email đã tồn tại chưa (và lấy luôn để tái dùng bên dưới)
     const existing = await User.findOne({ email: email.toLowerCase().trim() });
-    if (existing) {
+    if (existing && existing.isVerified) {
       return res.status(400).json({ success: false, message: 'Email này đã được đăng ký' });
     }
 
@@ -19,30 +19,28 @@ exports.sendRegisterOTP = async (req, res, next) => {
     const otp = generateOTP();
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 phút
 
-    // Lưu tạm user với OTP (chưa verified)
-    let tempUser = await User.findOne({ email: email.toLowerCase().trim() });
-    if (!tempUser) {
-      tempUser = new User({
-        email: email.toLowerCase().trim(),
-        password,
-        fullName: fullName.trim(),
-        isVerified: false,
-        otp: { code: otp, expiresAt, attempts: 0 },
-      });
-    } else {
-      tempUser.otp = { code: otp, expiresAt, attempts: 0 };
-    }
+    // Dùng lại bản ghi chưa verified hoặc tạo mới
+    let tempUser = existing || new User({
+      email: email.toLowerCase().trim(),
+      password,
+      fullName: fullName.trim(),
+      isVerified: false,
+    });
+    tempUser.otp = { code: otp, expiresAt, attempts: 0 };
     await tempUser.save();
 
     // Gửi OTP qua email
+    let emailSent = false;
     try {
       await sendOTPEmail(email, fullName, otp, 'register');
+      emailSent = true;
     } catch (emailErr) {
       console.warn('[Auth] Không gửi được email OTP:', emailErr.message);
-      // Trong dev: trả OTP để test
-      if (process.env.NODE_ENV === 'development') {
-        return res.json({ success: true, message: 'OTP đã tạo (dev mode)', devOTP: otp });
-      }
+    }
+
+    // devOTP chỉ trả về khi development VÀ email thật sự không gửi được
+    if (!emailSent && process.env.NODE_ENV === 'development') {
+      return res.json({ success: true, message: 'OTP đã tạo (dev mode — email không gửi được)', devOTP: otp });
     }
 
     res.json({ success: true, message: `OTP đã gửi đến ${email}` });
@@ -123,13 +121,16 @@ exports.sendLoginOTP = async (req, res, next) => {
     user.otp = { code: otp, expiresAt: new Date(Date.now() + 5 * 60 * 1000), attempts: 0 };
     await user.save();
 
+    let emailSent = false;
     try {
       await sendOTPEmail(email, user.fullName, otp, 'login');
+      emailSent = true;
     } catch (emailErr) {
       console.warn('[Auth] Không gửi được email OTP:', emailErr.message);
-      if (process.env.NODE_ENV === 'development') {
-        return res.json({ success: true, message: 'OTP tạo thành công (dev)', devOTP: otp, fullName: user.fullName });
-      }
+    }
+
+    if (!emailSent && process.env.NODE_ENV === 'development') {
+      return res.json({ success: true, message: 'OTP tạo thành công (dev)', devOTP: otp, fullName: user.fullName });
     }
 
     res.json({ success: true, message: `OTP đã gửi đến ${email}`, fullName: user.fullName });
@@ -232,8 +233,8 @@ exports.refreshToken = async (req, res, next) => {
     if (!refreshToken) {
       return res.status(400).json({ success: false, message: 'Thiếu refresh token' });
     }
-    const { verifyToken } = require('../utils/jwt');
-    const decoded = verifyToken(refreshToken);
+    const { verifyRefreshToken } = require('../utils/jwt');
+    const decoded = verifyRefreshToken(refreshToken); // dùng REFRESH_SECRET
     const user = await User.findById(decoded.id);
     if (!user) {
       return res.status(401).json({ success: false, message: 'Tài khoản không tồn tại' });

@@ -9,7 +9,9 @@ const mongoose = require('mongoose');
 async function connectDB() {
   const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/memmori';
   await mongoose.connect(MONGO_URI);
-  console.log('✅ Đã kết nối MongoDB:', MONGO_URI);
+  // Che password trong log: mongodb+srv://user:****@cluster/db
+  const safeUri = MONGO_URI.replace(/:([^@]+)@/, ':****@');
+  console.log('✅ Đã kết nối MongoDB:', safeUri);
 }
 
 module.exports = { connectDB };

@@ -8,7 +8,8 @@ export const STORAGE_KEYS = {
   THEME:             '@memmori_theme',
   ACCENT:            '@memmori_accent',
   SETTINGS:          '@memmori_settings',
-  SAVED_CREDENTIALS: '@memmori_saved_credentials',
+  // Lưu ý: SAVED_CREDENTIALS dùng expo-secure-store (không có prefix @)
+  SAVED_CREDENTIALS: 'memmori_saved_credentials',
   FRIENDS_DB:        '@memmori_friends',
   USERS_DB:          '@memmori_users_db',
 };

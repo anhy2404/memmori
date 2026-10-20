@@ -43,12 +43,14 @@ export function NotificationProvider({ children }) {
 
   // ===== THÊM THÔNG BÁO (local optimistic, backend xử lý qua controller) =====
   const addNotification = useCallback(async ({ type, title, body, fromUser = null, targetUserId, data = {} }) => {
-    // Chỉ lưu local nếu là thông báo của chính user hiện tại
-    // Thông báo thật được tạo từ backend controllers
+    // ID local dùng timestamp + random để tránh duplicate khi gọi nhanh liên tiếp
+    // Các ID này chỉ dùng để render local — không gửi lên server
+    const localId = `local_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
     const notif = {
-      _id: `local_${Date.now()}`,
+      _id: localId,
       type, title, body, fromUser, targetUserId, data,
       isRead: false,
+      isLocal: true, // đánh dấu để phân biệt với notif từ server
       createdAt: new Date().toISOString(),
     };
     setNotifications(prev => [notif, ...prev]);
@@ -59,23 +61,25 @@ export function NotificationProvider({ children }) {
   // ===== ĐỌC 1 THÔNG BÁO =====
   const markAsRead = useCallback(async (notifId) => {
     try {
-      // Optimistic update
       setNotifications(prev => prev.map(n =>
         (n._id || n.id) === notifId ? { ...n, isRead: true } : n
       ));
       setUnreadCount(prev => Math.max(0, prev - 1));
-      await notificationsAPI.markAsRead(notifId);
+      // Bỏ qua local notif — không có ID thật để gửi lên server
+      if (!String(notifId).startsWith('local_')) {
+        await notificationsAPI.markAsRead(notifId);
+      }
     } catch (err) {
       console.error('[NotificationContext] Lỗi markAsRead:', err.message);
     }
   }, []);
 
   // ===== ĐỌC TẤT CẢ =====
-  const markAllAsRead = useCallback(async (userId) => {
+  const markAllAsRead = useCallback(async () => {
     try {
       setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
       setUnreadCount(0);
-      await notificationsAPI.markAllAsRead();
+      await notificationsAPI.markAllRead();
     } catch (err) {
       console.error('[NotificationContext] Lỗi markAllAsRead:', err.message);
     }
@@ -87,14 +91,17 @@ export function NotificationProvider({ children }) {
       const notif = notifications.find(n => (n._id || n.id) === notifId);
       setNotifications(prev => prev.filter(n => (n._id || n.id) !== notifId));
       if (notif && !notif.isRead) setUnreadCount(prev => Math.max(0, prev - 1));
-      await notificationsAPI.delete(notifId);
+      // Bỏ qua local notif
+      if (!String(notifId).startsWith('local_')) {
+        await notificationsAPI.delete(notifId);
+      }
     } catch (err) {
       console.error('[NotificationContext] Lỗi deleteNotification:', err.message);
     }
   }, [notifications]);
 
   // ===== XÓA TẤT CẢ =====
-  const clearAllNotifications = useCallback(async (userId) => {
+  const clearAllNotifications = useCallback(async () => {
     try {
       setNotifications([]);
       setUnreadCount(0);
@@ -104,8 +111,8 @@ export function NotificationProvider({ children }) {
     }
   }, []);
 
-  // ===== LẤY THÔNG BÁO THEO USER =====
-  const getNotificationsForUser = useCallback((userId) => {
+  // ===== LẤY THÔNG BÁO (đã sort mới nhất trước) =====
+  const getNotificationsForUser = useCallback(() => {
     return [...notifications].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
   }, [notifications]);
 

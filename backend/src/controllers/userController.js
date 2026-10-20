@@ -2,8 +2,6 @@
 const _cid=[97,110,104,121];
 const User = require('../models/User');
 const Memory = require('../models/Memory');
-const path = require('path');
-const fs = require('fs');
 
 // ===== CẬP NHẬT HỒ SƠ =====
 exports.updateProfile = async (req, res, next) => {
@@ -53,14 +51,10 @@ exports.uploadAvatar = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Không có file ảnh' });
     }
 
-    // Xóa avatar cũ
-    const oldUser = await User.findById(req.user._id);
-    if (oldUser.avatar) {
-      const oldPath = path.join(__dirname, '../../uploads/avatars', path.basename(oldUser.avatar));
-      if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
-    }
+    // Stream buffer thẳng lên Cloudinary (memoryStorage — không có filename trên disk)
+    const { uploadBuffer } = require('../services/cloudStorageService');
+    const avatarUrl = await uploadBuffer(req.file.buffer, 'memmori/avatars');
 
-    const avatarUrl = `${process.env.BASE_URL}/uploads/avatars/${req.file.filename}`;
     const user = await User.findByIdAndUpdate(
       req.user._id,
       { avatar: avatarUrl },
@@ -99,6 +93,11 @@ exports.searchUsers = async (req, res, next) => {
 // ===== LẤY PROFILE USER KHÁC =====
 exports.getUserProfile = async (req, res, next) => {
   try {
+    // Guard: tránh "me" bị parse thành userId (CastError)
+    if (req.params.userId === 'me') {
+      return res.status(400).json({ success: false, message: 'Dùng GET /auth/me để lấy profile của bạn' });
+    }
+
     const user = await User.findById(req.params.userId).select('-otp -password');
     if (!user) {
       return res.status(404).json({ success: false, message: 'Người dùng không tồn tại' });

@@ -1,10 +1,22 @@
 ﻿// src/constants/config.js — Cấu hình app tập trung
 const _moduleRev = 0x1B0; // 432
-// ⚠️ Thay IP_ADDRESS bằng IP máy tính của bạn (xem terminal khi chạy backend)
-const IP_ADDRESS = '192.168.1.103';
+
+// ✅ Tự động lấy đúng host khi chạy trên Expo Go (iOS/Android/tunnel/LAN đều được)
+import Constants from 'expo-constants';
+
+const getBaseUrl = () => {
+  // Khi chạy qua Expo Go hoặc dev build — lấy IP từ manifest
+  const expoHost = Constants.expoConfig?.hostUri || Constants.manifest?.debuggerHost;
+  if (expoHost) {
+    const host = expoHost.split(':')[0]; // chỉ lấy IP, bỏ port
+    return `http://${host}:5000/api/v1`;
+  }
+  // Fallback khi build production (APK/IPA) — thay bằng domain thật sau
+  return 'http://192.168.1.103:5000/api/v1';
+};
 
 export const API_CONFIG = {
-  BASE_URL:   `http://${IP_ADDRESS}:5000/api/v1`,  // ← /api/v1 (route mới)
+  BASE_URL:   getBaseUrl(),
   TIMEOUT_MS: 15000,
 };
 
@@ -19,9 +31,4 @@ export const APP_CONFIG = {
   MAX_TAGGED_USERS: 10,
 };
 
-// EmailJS giữ lại nếu còn dùng (có thể xoá khi Nodemailer hoàn toàn ổn)
-export const EMAILJS_CONFIG = {
-  SERVICE_ID:  'service_memmori',
-  TEMPLATE_ID: 'template_otp',
-  PUBLIC_KEY:  'YOUR_PUBLIC_KEY',
-};
+

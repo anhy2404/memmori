@@ -118,8 +118,9 @@ exports.unfriend = async (req, res, next) => {
       status: 'accepted',
     });
 
-    await User.findByIdAndUpdate(friendId, { $inc: { friendsCount: -1 } });
-    await User.findByIdAndUpdate(req.user._id, { $inc: { friendsCount: -1 } });
+    // $max: 0 đảm bảo friendsCount không bao giờ âm
+    await User.findByIdAndUpdate(friendId,     [{ $set: { friendsCount: { $max: [0, { $subtract: ['$friendsCount', 1] }] } } }]);
+    await User.findByIdAndUpdate(req.user._id, [{ $set: { friendsCount: { $max: [0, { $subtract: ['$friendsCount', 1] }] } } }]);
 
     res.json({ success: true, message: 'Đã hủy kết bạn' });
   } catch (err) {
