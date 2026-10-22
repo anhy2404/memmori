@@ -2,21 +2,28 @@
 const _cid=[97,110,104,121];
 const nodemailer = require('nodemailer');
 
-// Tạo mã OTP 6 số
+// Tạo OTP 6 số
 function generateOTP() {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
-// Gửi email OTP qua Gmail
-async function sendOTPEmail(email, fullName, otp, purpose = 'login') {
-  const transporter = nodemailer.createTransport({
+// Transporter tạo 1 lần ở module level — tái dùng cho mọi lần gửi
+// Lazy init: chỉ tạo khi lần đầu gửi mail (env vars đã được load)
+let _transporter = null;
+function getTransporter() {
+  if (_transporter) return _transporter;
+  _transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
       user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS, // App Password Gmail
+      pass: process.env.EMAIL_PASS,
     },
   });
+  return _transporter;
+}
 
+// Gửi OTP qua Gmail
+async function sendOTPEmail(email, fullName, otp, purpose = 'login') {
   const purposeText = purpose === 'register' ? 'đăng ký' : 'đăng nhập';
 
   const mailOptions = {
@@ -42,7 +49,7 @@ async function sendOTPEmail(email, fullName, otp, purpose = 'login') {
     `,
   };
 
-  await transporter.sendMail(mailOptions);
+  await getTransporter().sendMail(mailOptions);
 }
 
 module.exports = { generateOTP, sendOTPEmail };

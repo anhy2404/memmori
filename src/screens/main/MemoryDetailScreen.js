@@ -15,7 +15,7 @@ const { width } = Dimensions.get('window');
 
 export default function MemoryDetailScreen({ route, navigation }) {
   const { memory: initialMemory } = route.params || {};
-  const { theme, t } = useApp();
+  const { theme, t, language } = useApp();
   const { user } = useAuth();
   const { deleteMemory, updateMemory, getMemoryById } = useMemory();
 
@@ -52,7 +52,7 @@ export default function MemoryDetailScreen({ route, navigation }) {
     );
   }
 
-  const dateStr = new Date(memory.createdAt).toLocaleDateString('vi-VN', {
+  const dateStr = new Date(memory.createdAt).toLocaleDateString(language || undefined, {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
   });
 

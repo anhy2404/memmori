@@ -13,7 +13,7 @@ import { ADMIN_EMAIL } from '../../constants';
 import { userAPI } from '../../services/apiService';
 
 export default function AdminScreen({ navigation }) {
-  const { theme } = useApp();
+  const { theme, t } = useApp();
   const { user, logout, getSeedInfo } = useAuth();
   const { memories, deleteMemory } = useMemory();
 
@@ -25,7 +25,7 @@ export default function AdminScreen({ navigation }) {
   // Bảo vệ: chỉ admin mới vào được
   useEffect(() => {
     if (!user || user.email.toLowerCase() !== ADMIN_EMAIL.toLowerCase()) {
-      Alert.alert('⛔ Không có quyền', 'Chỉ tài khoản quản trị mới truy cập được trang này.');
+      Alert.alert(t('admin.noPermission'), t('admin.noPermissionMsg'));
       navigation.goBack();
       return;
     }
@@ -49,21 +49,25 @@ export default function AdminScreen({ navigation }) {
   const handleDeleteUser = useCallback((targetUser) => {
     const targetId = targetUser._id || targetUser.id;
     if (targetUser.email.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
-      Alert.alert('⛔ Không thể xóa', 'Không thể xóa tài khoản quản trị.');
+      Alert.alert(t('admin.cantDeleteAdmin'), t('admin.cantDeleteAdminMsg'));
       return;
     }
     Alert.alert(
-      '🗑️ Xóa tài khoản',
-      `Xóa tài khoản "${targetUser.fullName}" (${targetUser.email})?\n\nHành động này không thể hoàn tác.`,
+      t('admin.deleteUser'),
+      t('admin.deleteUserMsg', { name: targetUser.fullName, email: targetUser.email }),
       [
-        { text: 'Hủy', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Xóa', style: 'destructive',
+          text: t('common.delete'), style: 'destructive',
           onPress: async () => {
-            // Xóa khỏi local state (chức năng xóa user qua API có thể bổ sung sau)
-            const updated = users.filter(u => (u._id || u.id) !== targetId);
-            setUsers(updated);
-            Alert.alert('✅', `Đã xóa tài khoản ${targetUser.email}`);
+            try {
+              const data = await userAPI.deleteUser(targetId);
+              if (!data.success) throw new Error(data.message);
+              setUsers(prev => prev.filter(u => (u._id || u.id) !== targetId));
+              Alert.alert('✅', t('admin.deleteSuccess', { email: targetUser.email }));
+            } catch (e) {
+              Alert.alert(t('admin.deleteError'), e.message || t('admin.deleteFailed'));
+            }
           },
         },
       ]
@@ -73,15 +77,15 @@ export default function AdminScreen({ navigation }) {
   // Xóa memory bất kỳ
   const handleDeleteMemory = useCallback((mem) => {
     Alert.alert(
-      '🗑️ Xóa kỷ niệm',
-      `Xóa kỷ niệm "${mem.title}"?`,
+      t('admin.deleteMemory'),
+      t('admin.deleteMemoryMsg', { title: mem.title }),
       [
-        { text: 'Hủy', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Xóa', style: 'destructive',
+          text: t('common.delete'), style: 'destructive',
           onPress: async () => {
             try { await deleteMemory(mem.id); }
-            catch { Alert.alert('Lỗi', 'Xóa thất bại'); }
+            catch { Alert.alert(t('admin.deleteError'), t('admin.deleteFailed')); }
           },
         },
       ]
@@ -129,23 +133,23 @@ export default function AdminScreen({ navigation }) {
       {/* Header */}
       <View style={[s.header, { backgroundColor: '#1a1a2e', borderBottomColor: '#333' }]}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={[s.backText, { color: '#a78bfa' }]}>← Quay lại</Text>
+          <Text style={[s.backText, { color: '#a78bfa' }]}>{t('admin.back')}</Text>
         </TouchableOpacity>
         <View style={s.headerCenter}>
-          <Text style={s.headerTitle}>👑 Quản trị</Text>
-          <Text style={s.headerSub}>Memmori Admin</Text>
+          <Text style={s.headerTitle}>{t('admin.title')}</Text>
+          <Text style={s.headerSub}>{t('admin.subtitle')}</Text>
         </View>
         <View style={s.adminBadge}>
-          <Text style={s.adminBadgeText}>ADMIN</Text>
+          <Text style={s.adminBadgeText}>{t('admin.badge')}</Text>
         </View>
       </View>
 
       {/* Tabs */}
       <View style={[s.tabs, { backgroundColor: theme.colors.card, borderBottomColor: theme.colors.border }]}>
         {[
-          { key: 'users',    label: `👥 Users (${users.length})` },
-          { key: 'memories', label: `🗺️ Kỷ niệm (${memories.length})` },
-          { key: 'stats',    label: '📊 Thống kê' },
+          { key: 'users',    label: `${t('admin.tabUsers')} (${users.length})` },
+          { key: 'memories', label: `${t('admin.tabMemories')} (${memories.length})` },
+          { key: 'stats',    label: t('admin.tabStats') },
         ].map(tab => (
           <TouchableOpacity
             key={tab.key}
@@ -165,7 +169,7 @@ export default function AdminScreen({ navigation }) {
           <Text style={{ fontSize: 16 }}>🔍</Text>
           <TextInput
             style={[s.searchInput, { color: theme.colors.text }]}
-            placeholder={activeTab === 'users' ? 'Tìm tên, email...' : 'Tìm tiêu đề, tác giả...'}
+            placeholder={activeTab === 'users' ? t('admin.searchUsersPlaceholder') : t('admin.searchMemoriesPlaceholder')}
             placeholderTextColor={theme.colors.placeholder}
             value={search}
             onChangeText={setSearch}
@@ -214,7 +218,7 @@ export default function AdminScreen({ navigation }) {
                   </Text>
                   {/* Số memory của user này */}
                   <Text style={[s.userMemCount, { color: theme.colors.primary }]}>
-                    🗺️ {memories.filter(m => (m.userId?._id || m.userId) === (item._id || item.id)).length} kỷ niệm
+                    🗺️ {memories.filter(m => (m.userId?._id || m.userId) === (item._id || item.id)).length} {t('admin.memories')}
                   </Text>
                 </View>
                 {!isAdmin && (
@@ -231,7 +235,7 @@ export default function AdminScreen({ navigation }) {
           ListEmptyComponent={
             <View style={s.empty}>
               <Text style={{ fontSize: 48, marginBottom: 8 }}>👥</Text>
-              <Text style={[s.emptyText, { color: theme.colors.textSecondary }]}>Không tìm thấy tài khoản</Text>
+              <Text style={[s.emptyText, { color: theme.colors.textSecondary }]}>{t('admin.noUsers')}</Text>
             </View>
           }
         />
@@ -272,7 +276,7 @@ export default function AdminScreen({ navigation }) {
           ListEmptyComponent={
             <View style={s.empty}>
               <Text style={{ fontSize: 48, marginBottom: 8 }}>🗺️</Text>
-              <Text style={[s.emptyText, { color: theme.colors.textSecondary }]}>Không tìm thấy kỷ niệm</Text>
+              <Text style={[s.emptyText, { color: theme.colors.textSecondary }]}>{t('admin.noMemories')}</Text>
             </View>
           }
         />
@@ -281,15 +285,15 @@ export default function AdminScreen({ navigation }) {
       {/* ===== STATS TAB ===== */}
       {activeTab === 'stats' && (
         <ScrollView contentContainerStyle={s.statsWrap} showsVerticalScrollIndicator={false}>
-          <Text style={[s.statsTitle, { color: theme.colors.text }]}>📊 Tổng quan hệ thống</Text>
+          <Text style={[s.statsTitle, { color: theme.colors.text }]}>{t('admin.statsTitle')}</Text>
 
           {[
-            { icon: '👥', label: 'Tổng tài khoản',    value: stats.totalUsers,     color: '#7c3aed' },
-            { icon: '🗺️', label: 'Tổng kỷ niệm',      value: stats.totalMemories,  color: '#0ea5e9' },
-            { icon: '🌐', label: 'Kỷ niệm công khai',  value: stats.publicMemories, color: '#16a34a' },
-            { icon: '🔒', label: 'Kỷ niệm riêng tư',  value: stats.totalMemories - stats.publicMemories, color: '#9333ea' },
-            { icon: '📸', label: 'Kỷ niệm có ảnh',    value: stats.withPhotos,     color: '#f59e0b' },
-            { icon: '📍', label: 'Kỷ niệm có vị trí', value: stats.withLocation,   color: '#ef4444' },
+            { icon: '👥', label: t('admin.statTotalUsers'),    value: stats.totalUsers,     color: '#7c3aed' },
+            { icon: '🗺️', label: t('admin.statTotalMemories'), value: stats.totalMemories,  color: '#0ea5e9' },
+            { icon: '🌐', label: t('admin.statPublicMemories'), value: stats.publicMemories, color: '#16a34a' },
+            { icon: '🔒', label: t('admin.statPrivateMemories'), value: stats.totalMemories - stats.publicMemories, color: '#9333ea' },
+            { icon: '📸', label: t('admin.statWithPhotos'),    value: stats.withPhotos,     color: '#f59e0b' },
+            { icon: '📍', label: t('admin.statWithLocation'),  value: stats.withLocation,   color: '#ef4444' },
           ].map((item, i) => (
             <View key={i} style={[s.statCard, { backgroundColor: theme.colors.card, borderColor: item.color + '40' }]}>
               <View style={[s.statIcon, { backgroundColor: item.color + '18' }]}>
@@ -303,7 +307,7 @@ export default function AdminScreen({ navigation }) {
           ))}
 
           <View style={[s.adminInfo, { backgroundColor: '#1a1a2e' }]}>
-            <Text style={s.adminInfoText}>👑 Đăng nhập với quyền Admin</Text>
+            <Text style={s.adminInfoText}>{t('admin.loggedAsAdmin')}</Text>
             <Text style={[s.adminInfoEmail, { color: '#a78bfa' }]}>{user?.email}</Text>
           </View>
         </ScrollView>

@@ -1,0 +1,16 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Syntax Check On Save",
+      "trigger": "PostFileSave",
+      "description": "Check JS syntax sau moi lan luu file",
+      "matcher": "(src/.*\\.js$|App\\.js$)",
+      "action": {
+        "type": "command",
+        "command": "node --check \"${file}\" 2>&1 && echo \"OK: ${file}\" || echo \"SYNTAX ERROR: ${file}\"",
+        "timeout": 10
+      }
+    }
+  ]
+}

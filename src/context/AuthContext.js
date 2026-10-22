@@ -46,6 +46,7 @@ export function AuthProvider({ children }) {
     register:        store.register,
     logout:          store.logout,
     updateProfile:   store.updateProfile,
+    refreshUser:     store.refreshUser, // dùng sau upload avatar
 
     // Validators
     validateEmail,

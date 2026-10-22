@@ -133,3 +133,20 @@ exports.getAllUsers = async (req, res, next) => {
     next(err);
   }
 };
+
+// ===== XÓA USER (admin only) =====
+exports.deleteUser = async (req, res, next) => {
+  try {
+    const { userId } = req.params;
+    if (!userId || userId === req.user._id.toString()) {
+      return res.status(400).json({ success: false, message: 'Không thể xóa chính mình' });
+    }
+    const user = await User.findByIdAndDelete(userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'Người dùng không tồn tại' });
+    }
+    res.json({ success: true, message: `Đã xóa tài khoản ${user.email}` });
+  } catch (err) {
+    next(err);
+  }
+};

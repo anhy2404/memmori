@@ -9,6 +9,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import { useNotification, NOTIF_TYPES } from '../../context/NotificationContext';
+import { timeAgo } from '../../utils/timeAgo';
 
 // Icon theo loại thông báo
 function notifIcon(type) {
@@ -21,18 +22,6 @@ function notifIcon(type) {
     case NOTIF_TYPES.SYSTEM:          return '📢';
     default:                           return '🔔';
   }
-}
-
-function timeAgo(dateStr, t) {
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const mins  = Math.floor(diff / 60000);
-  const hours = Math.floor(diff / 3600000);
-  const days  = Math.floor(diff / 86400000);
-  if (mins < 1)   return t('notifications.justNow');
-  if (mins < 60)  return t('notifications.minutesAgo', { n: mins });
-  if (hours < 24) return t('notifications.hoursAgo', { n: hours });
-  if (days < 7)   return t('notifications.daysAgo', { n: days });
-  return new Date(dateStr).toLocaleDateString();
 }
 
 export default function NotificationsScreen({ navigation }) {
@@ -51,7 +40,8 @@ export default function NotificationsScreen({ navigation }) {
   const unreadCount = notifs.filter(n => !n.isRead).length;
 
   const handlePress = useCallback(async (notif) => {
-    if (!notif.isRead) await markAsRead(notif.id);
+    const id = notif._id || notif.id;
+    if (!notif.isRead) await markAsRead(id);
     // Điều hướng theo loại
     if (notif.data?.memoryId && notif.type === NOTIF_TYPES.MEMORY_TAGGED) {
       // navigation.navigate('MemoryDetail', { memory: ... })
@@ -103,7 +93,7 @@ export default function NotificationsScreen({ navigation }) {
       )}
       <TouchableOpacity
         style={s.deleteBtn}
-        onPress={() => handleDelete(item.id)}
+        onPress={() => handleDelete(item._id || item.id)}
         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       >
         <Text style={{ fontSize: 14, color: theme.colors.textTertiary }}>✕</Text>
@@ -146,7 +136,7 @@ export default function NotificationsScreen({ navigation }) {
       {/* List */}
       <FlatList
         data={notifs}
-        keyExtractor={item => item.id}
+        keyExtractor={item => (item._id || item.id) ?? String(Math.random())}
         renderItem={renderItem}
         contentContainerStyle={notifs.length === 0 ? s.emptyWrap : s.listContent}
         showsVerticalScrollIndicator={false}

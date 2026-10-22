@@ -11,11 +11,11 @@ import * as SecureStore from 'expo-secure-store';
 import { useAuth } from '../../context/AuthContext';
 import { useApp } from '../../context/AppContext';
 import AppLogo from '../../components/AppLogo';
-import { SEED_EMAILS } from '../../constants';
+import { APP_CONFIG, STORAGE_KEYS } from '../../constants';
 
 const { width } = Dimensions.get('window');
 // Lưu credentials trong Keychain/Keystore — mã hoá phần cứng
-const SAVED_CREDENTIALS_KEY = 'memmori_saved_credentials';
+const SAVED_CREDENTIALS_KEY = STORAGE_KEYS.SAVED_CREDENTIALS;
 
 export default function LoginScreen({ navigation }) {
   const { login } = useAuth();
@@ -228,7 +228,7 @@ export default function LoginScreen({ navigation }) {
               </TouchableOpacity>
               <TouchableOpacity
                 style={s.forgotBtn}
-                onPress={() => Alert.alert(t('auth.forgotPassword'), `${t('auth.forgotPasswordHint')}\n\nDemo: demo@memmori.vn / 123456`)}
+                onPress={() => Alert.alert(t('auth.forgotPassword'), `${t('auth.forgotPasswordHint')}\n\nDemo: ${APP_CONFIG.DEMO_EMAIL} / ${APP_CONFIG.DEMO_PASSWORD}`)}
               >
                 <Text style={[s.forgotText, { color: theme.colors.primary }]}>{t('auth.forgotPassword')}</Text>
               </TouchableOpacity>
@@ -258,7 +258,7 @@ export default function LoginScreen({ navigation }) {
             {/* Demo hint */}
             <TouchableOpacity
               style={s.demoBtn}
-              onPress={() => { setEmail('demo@memmori.vn'); setPassword('123456'); }}
+              onPress={() => { setEmail(APP_CONFIG.DEMO_EMAIL); setPassword(APP_CONFIG.DEMO_PASSWORD); }}
             >
               <Text style={[s.demoText, { color: theme.colors.textSecondary }]}>
                 🎯 {t('auth.demoHint')}

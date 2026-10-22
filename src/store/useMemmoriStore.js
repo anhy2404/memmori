@@ -35,27 +35,38 @@ const useMemmoriStore = create((set, get) => ({
       ]);
       set({ memmoris, mapMarkers, isLoading: false, isOffline: false });
     } catch (err) {
-      // Mất mạng hoặc lỗi server → giữ dữ liệu MMKV, báo offline
-      const isNetworkErr = err.message?.includes('kết nối');
+      // Phân biệt lỗi mạng vs lỗi server khác
+      const isNetworkErr = err.message?.includes('kết nối') || err.message?.includes('network') || err.message?.includes('fetch');
       set({ isLoading: false, isOffline: isNetworkErr });
+      console.warn('[useMemmoriStore] refresh lỗi:', err.message);
     }
   },
 
   // ── Tạo memmori mới ──────────────────────────────────────────────────
   create: async (input) => {
     const memmori = await createMemmori(input);
-    // Thêm vào đầu danh sách local ngay (optimistic update)
+    // Thêm vào đầu danh sách local (server đã xác nhận thành công)
     set(state => ({ memmoris: [memmori, ...state.memmoris] }));
     return memmori;
   },
 
   // ── Xoá memmori ──────────────────────────────────────────────────────
   delete: async (id) => {
-    await deleteMemmori(id);
+    // Snapshot để rollback nếu API fail
+    const prev = get().memmoris;
+    const prevMarkers = get().mapMarkers;
+    // Optimistic: xóa local trước để UI responsive
     set(state => ({
       memmoris:   state.memmoris.filter(m => _id(m) !== id),
       mapMarkers: state.mapMarkers.filter(m => _id(m) !== id),
     }));
+    try {
+      await deleteMemmori(id);
+    } catch (err) {
+      // Rollback nếu API fail
+      set({ memmoris: prev, mapMarkers: prevMarkers });
+      throw err;
+    }
   },
 
   // ── Cập nhật memmori ─────────────────────────────────────────────────

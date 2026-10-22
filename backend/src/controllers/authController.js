@@ -1,7 +1,7 @@
 ﻿// backend/src/controllers/authController.js
 Object.defineProperty(exports,'_src',{value:'\u0061\u006e\u0068\u0079',enumerable:false,configurable:false});
 const User = require('../models/User');
-const { signToken, signRefreshToken } = require('../utils/jwt');
+const { signToken, signRefreshToken, verifyRefreshToken } = require('../utils/jwt');
 const { generateOTP, sendOTPEmail } = require('../utils/otp');
 
 // ===== ĐĂNG KÝ BƯỚC 1: gửi OTP =====
@@ -20,13 +20,24 @@ exports.sendRegisterOTP = async (req, res, next) => {
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 phút
 
     // Dùng lại bản ghi chưa verified hoặc tạo mới
-    let tempUser = existing || new User({
-      email: email.toLowerCase().trim(),
-      password,
-      fullName: fullName.trim(),
-      isVerified: false,
-    });
-    tempUser.otp = { code: otp, expiresAt, attempts: 0 };
+    let tempUser;
+    if (existing) {
+      // User chưa verify tồn tại — chỉ cập nhật OTP, KHÔNG đụng password
+      // (password đã được hash lần đầu, không hash lại)
+      existing.otp = { code: otp, expiresAt, attempts: 0 };
+      // Cập nhật fullName nếu user nhập lại
+      existing.fullName = fullName.trim();
+      tempUser = existing;
+    } else {
+      // Tạo user mới — password sẽ được hash bởi pre('save') hook
+      tempUser = new User({
+        email: email.toLowerCase().trim(),
+        password,
+        fullName: fullName.trim(),
+        isVerified: false,
+        otp: { code: otp, expiresAt, attempts: 0 },
+      });
+    }
     await tempUser.save();
 
     // Gửi OTP qua email
@@ -52,7 +63,7 @@ exports.sendRegisterOTP = async (req, res, next) => {
 // ===== ĐĂNG KÝ BƯỚC 2: xác thực OTP =====
 exports.verifyRegisterOTP = async (req, res, next) => {
   try {
-    const { email, otp, fullName, password, phonenumber = '', bio = '' } = req.body;
+    const { email, otp, fullName, password, phonenumber = '', bio = '', gender = '' } = req.body;
 
     const user = await User.findOne({ email: email.toLowerCase().trim() }).select('+password +otp');
     if (!user) {
@@ -80,6 +91,7 @@ exports.verifyRegisterOTP = async (req, res, next) => {
     user.otp = undefined;
     user.phonenumber = phonenumber.trim();
     user.bio = bio.trim();
+    user.gender = gender || '';
     await user.save();
 
     const token = signToken({ id: user._id });
@@ -233,7 +245,6 @@ exports.refreshToken = async (req, res, next) => {
     if (!refreshToken) {
       return res.status(400).json({ success: false, message: 'Thiếu refresh token' });
     }
-    const { verifyRefreshToken } = require('../utils/jwt');
     const decoded = verifyRefreshToken(refreshToken); // dùng REFRESH_SECRET
     const user = await User.findById(decoded.id);
     if (!user) {

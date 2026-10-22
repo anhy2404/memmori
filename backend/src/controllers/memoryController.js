@@ -2,6 +2,7 @@
 const _moduleRev = 0x1B0; // 432
 // Luồng: JWT verify → Zod validate → Cloudinary upload → MongoDB GeoJSON insert
 const Memmori      = require('../models/Memory');
+const User         = require('../models/User');
 const Friendship   = require('../models/Friendship');
 const Notification = require('../models/Notification');
 const { uploadManyBuffers } = require('../services/cloudStorageService');
@@ -63,6 +64,12 @@ exports.createMemmori = async (req, res, next) => {
       taggedUserIds,
     });
 
+    // Cập nhật memoriesCount của user
+    await User.findByIdAndUpdate(
+      req.user._id,
+      { $inc: { memoriesCount: 1 } }
+    );
+
     // Thông báo tag người dùng
     if (taggedUserIds.length > 0) {
       const notifPromises = taggedUserIds.map(uid =>
@@ -123,17 +130,26 @@ exports.getMapBounds = async (req, res, next) => {
   try {
     const { swLng, swLat, neLng, neLat } = req.query;
 
-    // Lấy memmoris có vị trí trong bounding box của bản đồ
-    // $box nhận [[swLng, swLat], [neLng, neLat]] theo chuẩn GeoJSON
+    // $geoWithin + $geometry Polygon — tương thích 2dsphere index
+    // $box là legacy flat-earth operator, không dùng được với 2dsphere
+    const sw = [parseFloat(swLng), parseFloat(swLat)];
+    const ne = [parseFloat(neLng), parseFloat(neLat)];
     const memmoris = await Memmori.find({
       userId:    req.user._id,
       isDeleted: false,
       location: {
         $geoWithin: {
-          $box: [
-            [parseFloat(swLng), parseFloat(swLat)],
-            [parseFloat(neLng), parseFloat(neLat)],
-          ],
+          $geometry: {
+            type: 'Polygon',
+            // Polygon ring phải đóng kín: điểm đầu = điểm cuối, ngược chiều kim đồng hồ
+            coordinates: [[
+              sw,
+              [ne[0], sw[1]],
+              ne,
+              [sw[0], ne[1]],
+              sw,
+            ]],
+          },
         },
       },
     })
@@ -280,6 +296,12 @@ exports.deleteMemmori = async (req, res, next) => {
 
     memmori.isDeleted = true;
     await memmori.save();
+
+    // Giảm memoriesCount (không để âm)
+    await User.findByIdAndUpdate(
+      memmori.userId,
+      [{ $set: { memoriesCount: { $max: [0, { $subtract: ['$memoriesCount', 1] }] } } }]
+    );
 
     // TODO: xoá ảnh trên Cloudinary nếu cần (giữ lại để tránh mất ảnh khi undo)
 

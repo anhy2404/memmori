@@ -6,8 +6,8 @@ import {
   checkSession, login, verifyLoginOTP,
   sendRegisterOTP, register, logout,
 } from '../repositories/AuthRepository';
-import { userAPI } from '../services/apiService';
-import { mmkvSet, mmkvGet, CACHE_KEYS } from '../storage/mmkvStorage';
+import { userAPI, authAPI } from '../services/apiService';
+import { mmkvSet, CACHE_KEYS } from '../storage/mmkvStorage';
 
 const useAuthStore = create((set, get) => ({
   user:            null,
@@ -17,6 +17,10 @@ const useAuthStore = create((set, get) => ({
   // ── Khởi động: kiểm tra session ──────────────────────────────────────
   init: async () => {
     set({ isLoading: true });
+    // Đăng ký callback để apiService có thể trigger logout khi token hết hạn
+    globalThis.__memmoriSessionExpired = () => {
+      set({ user: null, isAuthenticated: false });
+    };
     try {
       const user = await checkSession();
       set({ user, isAuthenticated: !!user, isLoading: false });
@@ -68,6 +72,21 @@ const useAuthStore = create((set, get) => ({
     await mmkvSet(CACHE_KEYS.USER, updatedUser);
     set({ user: updatedUser });
     return updatedUser;
+  },
+
+  // ── Refresh user từ server (dùng sau upload avatar hoặc cần sync mới nhất) ──
+  refreshUser: async () => {
+    try {
+      const data = await authAPI.getMe();
+      if (data.success && data.user) {
+        await mmkvSet(CACHE_KEYS.USER, data.user);
+        set({ user: data.user });
+        return data.user;
+      }
+    } catch (err) {
+      console.error('[useAuthStore] refreshUser lỗi:', err.message);
+    }
+    return get().user;
   },
 }));
 

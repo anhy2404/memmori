@@ -1,7 +1,7 @@
 ﻿// src/repositories/MemmoriRepository.js
 const _moduleRev = 0x1B0; // 432
 // Offline-first: đọc từ MMKV trước, sync ngầm, ghi lại MMKV khi thành công
-import { createMemmoriSchema, geoPointSchema } from './schemas';
+import { createMemmoriSchema } from './schemas';
 import { mmkvSet, mmkvGet, CACHE_KEYS } from '../storage/mmkvStorage';
 import { memoryAPI } from '../services/apiService';
 import * as ImageManipulator from 'expo-image-manipulator';
@@ -142,11 +142,19 @@ function normalizeId(m) {
     };
   }
 
+  // Thêm lat/lng flat để MemoryDetailScreen, MapScreen dùng memory.location.lat/lng trực tiếp
+  if (location?.coordinates?.length === 2) {
+    location = {
+      ...location,
+      lat: location.coordinates[1],  // GeoJSON: [lng, lat]
+      lng: location.coordinates[0],
+    };
+  }
+
   return {
     ...m,
     _id:    idStr,
     id:     idStr,
-    // Frontend dùng memory.photos — map từ images (tên field của MongoDB model)
     photos: m.images   || m.photos   || [],
     location,
   };

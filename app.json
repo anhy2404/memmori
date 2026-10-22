@@ -44,6 +44,10 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
+    "extra": {
+      "_comment": "Sua backendHost = IP may tinh khi Expo Go khong tu detect duoc. Sau khi sua, nhan R de reload.",
+      "backendHost": "192.168.1.14"
+    },
     "plugins": [
       [
         "expo-camera",

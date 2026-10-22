@@ -5,10 +5,12 @@
   "scripts": {
     "start": "npx expo start --android --clear --localhost",
     "start:qr": "npx expo start --clear",
+    "start:lan": "npx expo start --lan --clear",
     "start:tunnel": "npx expo start --tunnel --clear",
     "start:web": "npx expo start --web",
     "android": "npx expo start --android",
     "ios": "npx expo start --ios",
+    "backend": "cd backend && npm run dev",
     "build:android": "eas build --platform android --profile preview",
     "build:ios": "eas build --platform ios --profile preview",
     "build:ios:testflight": "eas build --platform ios --profile testflight",

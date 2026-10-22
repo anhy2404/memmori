@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useApp } from '../../context/AppContext';
-import { fetchPlacePhoto, GOOGLE_PLACES_API_KEY } from '../../services/placesService';
+import { fetchPlacePhoto } from '../../services/placesService';
 import MapScreen from './MapScreen';
 
 const { width: SCREEN_W } = Dimensions.get('window');

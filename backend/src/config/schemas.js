@@ -17,6 +17,7 @@ exports.verifyRegisterOTPSchema = z.object({
   password:    z.string().min(6).max(50),
   phonenumber: z.string().trim().optional().default(''),
   bio:         z.string().max(300).trim().optional().default(''),
+  gender:      z.enum(['male', 'female', 'other', '']).optional().default(''),
 });
 
 exports.sendLoginOTPSchema = z.object({

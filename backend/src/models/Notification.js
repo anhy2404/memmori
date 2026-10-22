@@ -22,6 +22,8 @@ const NotificationSchema = new mongoose.Schema({
       'MEMORY_TAGGED',
       'MEMORY_LIKED',
       'MEMORY_COMMENTED',
+      'MEMORY_SHARED',    // thêm: chia sẻ kỷ niệm
+      'PROFILE_VIEWED',   // thêm: xem trang cá nhân
       'SYSTEM',
     ],
     required: true,

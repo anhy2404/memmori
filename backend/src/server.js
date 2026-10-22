@@ -42,17 +42,26 @@ app.set('connectedUsers', connectedUsers);
 // ── MIDDLEWARE ───────────────────────────────────────────
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 app.use(cors({
-  // Đổi CLIENT_URL trong .env khi chuyển mạng (IP Expo Metro)
-  // React Native không phải browser nên wildcard vẫn hoạt động, nhưng
-  // dùng explicit origin khi production để giới hạn rõ ràng
+  // React Native (Expo Go / dev build) không gửi Origin header như browser
+  // → origin callback nhận `undefined` → phải cho qua
+  // Trong production nên giới hạn origin cụ thể khi deploy lên server thật
   origin: (origin, callback) => {
+    // Không có origin = mobile app native hoặc curl → cho phép
+    if (!origin) return callback(null, true);
+
     const allowed = process.env.CLIENT_URL;
-    // Cho qua nếu: không có origin (mobile app native) hoặc khớp CLIENT_URL
-    if (!origin || !allowed || origin === allowed) {
-      callback(null, true);
-    } else {
-      callback(new Error('CORS: origin không được phép'));
-    }
+    // Nếu không cấu hình CLIENT_URL → cho phép tất cả (dev mode)
+    if (!allowed) return callback(null, true);
+
+    // Cho phép khớp CLIENT_URL hoặc bất kỳ IP local (192.168.x.x, 10.x.x.x)
+    const isLocalIP = /^https?:\/\/(192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.)\d+\.\d+/.test(origin);
+    if (origin === allowed || isLocalIP) return callback(null, true);
+
+    // Expo Metro dev server có thể dùng nhiều port khác nhau — cho phép
+    const isExpoHost = origin.includes('exp://') || origin.includes('localhost');
+    if (isExpoHost) return callback(null, true);
+
+    callback(new Error(`CORS: origin không được phép: ${origin}`));
   },
   credentials: true,
 }));

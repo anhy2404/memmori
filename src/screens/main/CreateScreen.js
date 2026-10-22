@@ -13,7 +13,6 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import { useMemory } from '../../context/MemoryContext';
-import { useNotification, NOTIF_TYPES } from '../../context/NotificationContext';
 import { generateCaption } from '../../services/geminiService';
 import { userAPI } from '../../services/apiService';
 
@@ -65,7 +64,6 @@ export default function CreateScreen({ navigation }) {
   const { theme, t } = useApp();
   const { user } = useAuth();
   const { addMemory } = useMemory();
-  const { addNotification } = useNotification();
 
   // Privacy options - i18n
   const PRIVACY_OPTIONS = useMemo(() => [
@@ -391,17 +389,8 @@ export default function CreateScreen({ navigation }) {
         userId:        user?.id,
       });
 
-      // Gửi thông báo cho những người được gắn thẻ
-      for (const tagged of taggedUsers) {
-        await addNotification({
-          type: NOTIF_TYPES.MEMORY_TAGGED,
-          title: 'Bạn được gắn thẻ trong kỷ niệm 🏷️',
-          body: `${user?.fullName || 'Ai đó'} đã gắn thẻ bạn trong "${title.trim()}"`,
-          fromUser: { id: user?.id, fullName: user?.fullName, avatar: user?.avatar },
-          targetUserId: tagged.id,
-          data: {},
-        });
-      }
+      // Không gọi addNotification local — backend đã tạo notification khi createMemmori
+      // để tránh duplicate notification cho tagged users
       Alert.alert('✅', t('create.saveSuccess'), [
         {
           text: t('common.ok'),

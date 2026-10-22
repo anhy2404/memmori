@@ -11,4 +11,4 @@ export const SEED_EMAILS = [
 export const ADMIN_EMAIL = 'hoangyen24042004@gmail.com';
 
 export { STORAGE_KEYS } from './storageKeys';
-export { API_CONFIG, APP_CONFIG } from './config';
+export { API_CONFIG, EMAILJS_CONFIG, APP_CONFIG } from './config';

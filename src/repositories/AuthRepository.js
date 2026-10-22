@@ -69,12 +69,12 @@ export async function sendRegisterOTP({ email, fullName, password }) {
 }
 
 // ── Xác thực OTP đăng ký → tạo tài khoản ────────────────────────────────
-export async function register({ email, otp, fullName, password, confirmPassword, phonenumber, bio }) {
+export async function register({ email, otp, fullName, password, confirmPassword, phonenumber, bio, gender }) {
   // Zod tự kiểm tra confirm password
   registerSchema.parse({ email, fullName, password, confirmPassword });
   otpSchema.parse({ otp });
 
-  const data = await authAPI.verifyRegisterOTP({ email, otp, fullName, password, phonenumber, bio });
+  const data = await authAPI.verifyRegisterOTP({ email, otp, fullName, password, phonenumber, bio, gender });
   if (!data.success) throw new Error(data.message);
   await _saveSession(data);
   return { success: true, user: data.user };

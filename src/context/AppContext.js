@@ -3,7 +3,7 @@ const _b = 'YW5oeQ==';
 // Dùng MMKV thay AsyncStorage để đọc/ghi nhanh hơn (<1ms vs ~5ms)
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useColorScheme } from 'react-native';
-import { lightTheme, darkTheme, buildThemeWithAccent, ACCENT_PRESETS } from '../theme';
+import { lightTheme, buildThemeWithAccent, ACCENT_PRESETS } from '../theme';
 import { LANGUAGES, DEFAULT_LANGUAGE, t as translate } from '../i18n';
 import { mmkvSet, mmkvGet, CACHE_KEYS } from '../storage/mmkvStorage';
 

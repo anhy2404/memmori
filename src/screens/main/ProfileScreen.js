@@ -185,9 +185,9 @@ function EditProfileModal({ user, visible, onClose, onSave, theme, t }) {
 }
 
 // ===== STAT DETAIL MODAL =====
-function StatModal({ visible, type, memories, onClose, onPressMemory, theme, t }) {
+function StatModal({ visible, type, memories, onClose, onPressMemory, theme, t, language }) {
   const isLocations = type === 'locations';
-  const title = isLocations ? '📍 Địa điểm đã đến' : '📅 Kỷ niệm tháng này';
+  const title = isLocations ? t('profile.locationModalTitle') : t('profile.thisMonthModalTitle');
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
@@ -204,7 +204,7 @@ function StatModal({ visible, type, memories, onClose, onPressMemory, theme, t }
           <View style={smStyles.empty}>
             <Text style={{ fontSize: 48, marginBottom: 12 }}>{isLocations ? '🗺️' : '📅'}</Text>
             <Text style={[smStyles.emptyText, { color: theme.colors.textSecondary }]}>
-              {isLocations ? 'Chưa có địa điểm nào' : 'Chưa có kỷ niệm nào tháng này'}
+              {isLocations ? t('profile.noLocations') : t('profile.noMemoriesThisMonth')}
             </Text>
           </View>
         ) : (
@@ -215,10 +215,10 @@ function StatModal({ visible, type, memories, onClose, onPressMemory, theme, t }
             showsVerticalScrollIndicator={false}
             renderItem={({ item }) => {
               const photo = item.photos?.[0];
-              const date = new Date(item.createdAt).toLocaleDateString('vi-VN', {
+              const date = new Date(item.createdAt).toLocaleDateString(language || undefined, {
                 day: '2-digit', month: '2-digit', year: 'numeric',
               });
-              const time = new Date(item.createdAt).toLocaleTimeString('vi-VN', {
+              const time = new Date(item.createdAt).toLocaleTimeString(language || undefined, {
                 hour: '2-digit', minute: '2-digit',
               });
               return (
@@ -286,8 +286,8 @@ const smStyles = StyleSheet.create({
 });
 
 export default function ProfileScreen({ navigation }) {
-  const { theme, t } = useApp();
-  const { user, logout, updateProfile } = useAuth();
+  const { theme, t, language } = useApp();
+  const { user, logout, updateProfile, refreshUser } = useAuth();
   const { getMyMemories, getStats } = useMemory();
   const { getUnreadCount } = useNotification();
 
@@ -362,16 +362,15 @@ export default function ProfileScreen({ navigation }) {
       });
       if (!result.canceled && result.assets?.[0]) {
         const uri = result.assets[0].uri;
-        // Upload avatar lên server
+        // Upload avatar lên server — server lưu vào Cloudinary và cập nhật DB
         const data = await userAPI.uploadAvatar(uri);
         if (data.success) {
-          // updateProfile để refresh user state với avatar URL từ server
-          await updateProfile({ avatar: data.avatarUrl || uri });
+          // Refresh user từ server để lấy avatar URL mới nhất
+          await refreshUser();
+          Alert.alert('✅', t('profile.updateSuccess'));
         } else {
-          // fallback: lưu URI tạm
-          await updateProfile({ avatar: uri });
+          Alert.alert(t('common.error'), t('errors.uploadFailed'));
         }
-        Alert.alert('✅', t('profile.updateSuccess'));
       }
     } catch (err) {
       console.error('[ProfileScreen] Lỗi đổi avatar:', err);
@@ -566,6 +565,7 @@ export default function ProfileScreen({ navigation }) {
         onPressMemory={(m) => navigation.navigate('MemoryDetail', { memory: m })}
         theme={theme}
         t={t}
+        language={language}
       />
 
       {/* Modal chỉnh sửa */}

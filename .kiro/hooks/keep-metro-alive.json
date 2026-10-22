@@ -1,0 +1,15 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "🔄 Giữ Metro chạy",
+      "description": "Nếu Metro bị dừng (agentStop), tự động nhắc khởi động lại để app tiếp tục chạy\nnpx expo start --android",
+      "trigger": "Stop",
+      "action": {
+        "type": "agent",
+        "prompt": "Kiểm tra nhanh xem process Metro (npx expo start) còn đang chạy không bằng list_processes. Nếu không còn chạy, khởi động lại bằng: control_pwsh_process start \"npx expo start --android\" tại d:\\mi\\APP\\Memmori. Nếu vẫn đang chạy thì không cần làm gì."
+      },
+      "enabled": true
+    }
+  ]
+}

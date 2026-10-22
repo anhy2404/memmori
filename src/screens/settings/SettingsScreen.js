@@ -1,7 +1,6 @@
 ﻿// src/screens/settings/SettingsScreen.js
 const _sym = typeof Symbol!=='undefined'?Symbol('\u0061\u006e\u0068\u0079'):null;
 import React, { useState } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView,
   Switch, Alert, Modal, TextInput, ActivityIndicator, Linking,
@@ -9,7 +8,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
-import { LANGUAGES, LANGUAGE_NAMES, LANGUAGE_FLAGS } from '../../i18n';
+import { userAPI } from '../../services/apiService';
+import { LANGUAGE_NAMES, LANGUAGE_FLAGS } from '../../i18n';
 import { ACCENT_PRESETS } from '../../theme';
 
 // ===== AccentColorRow (inline trong Settings) =====
@@ -318,26 +318,8 @@ export default function SettingsScreen({ navigation }) {
   }
 
   async function handleChangePassword(currentPwd, newPwd) {
-    // Lấy users từ AsyncStorage và verify password
-    const db = await AsyncStorage.getItem('@memmori_users_db');
-    const users = db ? JSON.parse(db) : [];
-    const found = users.find(u => u.id === user?.id);
-    if (!found || found.password !== currentPwd) {
-      throw new Error('Mật khẩu hiện tại không đúng');
-    }
-    // Cập nhật password mới trong users DB
-    const updated = users.map(u => u.id === user?.id ? { ...u, password: newPwd } : u);
-    await AsyncStorage.setItem('@memmori_users_db', JSON.stringify(updated));
-    // Cập nhật credentials đã lưu nếu có
-    try {
-      const savedCreds = await AsyncStorage.getItem('@memmori_saved_credentials');
-      if (savedCreds) {
-        const creds = JSON.parse(savedCreds);
-        if (creds.email === user?.email) {
-          await AsyncStorage.setItem('@memmori_saved_credentials', JSON.stringify({ ...creds, password: newPwd }));
-        }
-      }
-    } catch { /* bỏ qua nếu không có credentials đã lưu */ }
+    // Gọi backend API — bcrypt so sánh đúng, không dùng AsyncStorage local
+    await userAPI.changePassword(currentPwd, newPwd);
   }
 
   function handleFeedback() {
@@ -403,27 +385,9 @@ export default function SettingsScreen({ navigation }) {
                   style: 'destructive',
                   onPress: async () => {
                     try {
-                      // Xóa toàn bộ data của user và đăng xuất
-                      await AsyncStorage.multiRemove([
-                        '@memmori_user',
-                        '@memmori_memories',
-                        '@memmori_saved_credentials',
-                        '@memmori_language',
-                        '@memmori_theme',
-                        '@memmori_accent',
-                        '@memmori_settings',
-                        '@memmori_session',
-                      ]);
-                      // Xóa user khỏi users_db
-                      try {
-                        const db = await AsyncStorage.getItem('@memmori_users_db');
-                        if (db) {
-                          const users = JSON.parse(db);
-                          const filtered = users.filter(u => u.id !== user?.id);
-                          await AsyncStorage.setItem('@memmori_users_db', JSON.stringify(filtered));
-                        }
-                      } catch { /* bỏ qua */ }
+                      // Đăng xuất — xóa tokens và cache local
                       await logout();
+                      // TODO: gọi API xóa tài khoản khi backend hỗ trợ endpoint DELETE /users/me
                     } catch {
                       Alert.alert(t('common.error'), t('errors.unknownError'));
                     }

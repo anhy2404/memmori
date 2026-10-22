@@ -9,7 +9,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import { useMemory } from '../../context/MemoryContext';
-import { useNotification, NOTIF_TYPES } from '../../context/NotificationContext';
 import { friendsAPI, userAPI } from '../../services/apiService';
 
 // ─── Avatar ───────────────────────────────────────────────────────────────────
@@ -74,7 +73,7 @@ const fcStyles = StyleSheet.create({
 });
 
 // ─── Request Card ─────────────────────────────────────────────────────────────
-function RequestCard({ person, onAccept, onDecline, theme }) {
+function RequestCard({ person, onAccept, onDecline, theme, t }) {
   return (
     <View style={[reqStyles.card, { backgroundColor: theme.colors.card, ...theme.shadows.sm }]}>
       <UserAvatar uri={person.avatar} name={person.fullName} size={46} theme={theme} />
@@ -83,7 +82,7 @@ function RequestCard({ person, onAccept, onDecline, theme }) {
           {person.fullName}
         </Text>
         <Text style={[reqStyles.sub, { color: theme.colors.textSecondary }]}>
-          Muốn kết bạn với bạn
+          {t('friends.wantsToBeFriend')}
         </Text>
       </View>
       <View style={reqStyles.actions}>
@@ -120,7 +119,7 @@ const reqStyles = StyleSheet.create({
 });
 
 // ─── Photos Modal ─────────────────────────────────────────────────────────────
-function PhotosModal({ visible, person, photos, onClose, theme, navigation }) {
+function PhotosModal({ visible, person, photos, onClose, theme, navigation, t }) {
   if (!person) return null;
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
@@ -131,7 +130,7 @@ function PhotosModal({ visible, person, photos, onClose, theme, navigation }) {
           <View style={{ flex: 1 }}>
             <Text style={[pmStyles.title, { color: theme.colors.text }]}>{person.fullName}</Text>
             <Text style={[pmStyles.sub, { color: theme.colors.textSecondary }]}>
-              {photos.length} ảnh công khai
+              {t('friends.photoCount', { n: photos.length })}
             </Text>
           </View>
           <TouchableOpacity onPress={onClose}>
@@ -143,7 +142,7 @@ function PhotosModal({ visible, person, photos, onClose, theme, navigation }) {
           <View style={pmStyles.empty}>
             <Text style={{ fontSize: 48 }}>📷</Text>
             <Text style={[pmStyles.emptyText, { color: theme.colors.textSecondary }]}>
-              Chưa có ảnh công khai
+              {t('friends.noPhotos')}
             </Text>
           </View>
         ) : (
@@ -199,10 +198,9 @@ const pmStyles = StyleSheet.create({
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function FriendsScreen({ navigation }) {
-  const { theme } = useApp();
+  const { theme, t } = useApp();
   const { user } = useAuth();
   const { memories } = useMemory();
-  const { addNotification } = useNotification();
 
   const [tab, setTab] = useState('friends'); // 'friends' | 'requests' | 'find'
   const [friends, setFriends] = useState([]);
@@ -217,8 +215,8 @@ export default function FriendsScreen({ navigation }) {
     try {
       const [friendsData, pendingData, sentData] = await Promise.all([
         friendsAPI.getFriends(),
-        friendsAPI.getPendingRequests(),
-        friendsAPI.getSentRequests(),
+        friendsAPI.getPending(),
+        friendsAPI.getSent(),
       ]);
 
       if (friendsData.success) {
@@ -271,37 +269,25 @@ export default function FriendsScreen({ navigation }) {
     try {
       const data = await friendsAPI.sendRequest(recipientId);
       if (!data.success) throw new Error(data.message);
-      await addNotification({
-        type: NOTIF_TYPES.FRIEND_REQUEST,
-        title: 'Lời mời kết bạn mới 🤝',
-        body: `${user.fullName} đã gửi lời mời kết bạn cho bạn`,
-        fromUser: { id: user.id, fullName: user.fullName, avatar: user.avatar },
-        targetUserId: recipientId,
-      });
+      // Backend đã tạo FRIEND_REQUEST notification trong DB — không tạo local để tránh duplicate
       await reload();
-      Alert.alert('✅', `Đã gửi lời mời kết bạn đến ${person.fullName}`);
+      Alert.alert('✅', t('friends.requestSentSuccess', { name: person.fullName }));
     } catch (err) {
       Alert.alert('Lỗi', err.message || 'Gửi lời mời thất bại');
     }
-  }, [user, reload, addNotification]);
+  }, [reload, t]);
 
   const handleAccept = useCallback(async (person) => {
     const requesterId = person._id || person.id;
     try {
       const data = await friendsAPI.acceptRequest(requesterId);
       if (!data.success) throw new Error(data.message);
-      await addNotification({
-        type: NOTIF_TYPES.FRIEND_ACCEPTED,
-        title: 'Lời mời kết bạn được chấp nhận ✅',
-        body: `${user.fullName} đã chấp nhận lời mời kết bạn của bạn`,
-        fromUser: { id: user.id, fullName: user.fullName, avatar: user.avatar },
-        targetUserId: requesterId,
-      });
+      // Backend đã tạo FRIEND_ACCEPTED notification trong DB — không tạo local
       await reload();
     } catch (err) {
       Alert.alert('Lỗi', err.message || 'Chấp nhận lời mời thất bại');
     }
-  }, [user, reload, addNotification]);
+  }, [reload]);
 
   const handleDecline = useCallback(async (person) => {
     const requesterId = person._id || person.id;
@@ -316,9 +302,9 @@ export default function FriendsScreen({ navigation }) {
 
   const handleUnfriend = useCallback((person) => {
     const friendId = person._id || person.id;
-    Alert.alert('Huỷ kết bạn', `Bỏ kết bạn với ${person.fullName}?`, [
-      { text: 'Huỷ', style: 'cancel' },
-      { text: 'Đồng ý', style: 'destructive', onPress: async () => {
+    Alert.alert(t('friends.unfriendConfirmTitle'), t('friends.unfriendConfirmMsg', { name: person.fullName }), [
+      { text: t('common.cancel'), style: 'cancel' },
+      { text: t('common.ok'), style: 'destructive', onPress: async () => {
         try {
           const data = await friendsAPI.unfriend(friendId);
           if (!data.success) throw new Error(data.message);
@@ -333,7 +319,13 @@ export default function FriendsScreen({ navigation }) {
   // ── Render người dùng trong tìm kiếm ─────────────────────────────────────
   const isFriend = useCallback((id) => friends.some(f => (f._id || f.id) === id), [friends]);
   const isRequested = useCallback((id) => sentReqs.includes(id), [sentReqs]);
-  const isIncoming = useCallback((id) => pendingReqs.some(p => (p._id || p.id) === id || p.sender?._id === id || p.sender?.id === id), [pendingReqs]);
+  // pendingReqs là các lời mời GỬI ĐẾN user — mỗi item có field `requester` (người gửi)
+  const isIncoming = useCallback((id) => {
+    return pendingReqs.some(p => {
+      const requesterId = p.requester?._id || p.requester?.id || p._id || p.id;
+      return requesterId === id;
+    });
+  }, [pendingReqs]);
 
   function renderSearchUser({ item }) {
     const itemId = item._id || item.id;
@@ -349,25 +341,25 @@ export default function FriendsScreen({ navigation }) {
         </View>
         {alreadyFriend ? (
           <View style={[srStyles.statusBadge, { backgroundColor: theme.colors.primarySoft || '#e0f2fe' }]}>
-            <Text style={[srStyles.statusText, { color: theme.colors.primary }]}>👥 Bạn bè</Text>
+            <Text style={[srStyles.statusText, { color: theme.colors.primary }]}>{t('friends.alreadyFriends')}</Text>
           </View>
         ) : incoming ? (
           <TouchableOpacity
             style={[srStyles.addBtn, { backgroundColor: theme.colors.primary }]}
             onPress={() => handleAccept(item)}
           >
-            <Text style={srStyles.addBtnText}>✓ Chấp nhận</Text>
+            <Text style={srStyles.addBtnText}>{t('friends.acceptRequest')}</Text>
           </TouchableOpacity>
         ) : alreadySent ? (
           <View style={[srStyles.statusBadge, { backgroundColor: theme.colors.highlight }]}>
-            <Text style={[srStyles.statusText, { color: theme.colors.textSecondary }]}>⏳ Đã gửi</Text>
+            <Text style={[srStyles.statusText, { color: theme.colors.textSecondary }]}>{t('friends.requestSent')}</Text>
           </View>
         ) : (
           <TouchableOpacity
             style={[srStyles.addBtn, { backgroundColor: theme.colors.primary }]}
             onPress={() => handleSendRequest(item)}
           >
-            <Text style={srStyles.addBtnText}>+ Kết bạn</Text>
+            <Text style={srStyles.addBtnText}>{t('friends.addFriend')}</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -375,29 +367,29 @@ export default function FriendsScreen({ navigation }) {
   }
 
   const TABS = [
-    { key: 'friends', label: `👥 Bạn bè${friends.length ? ` (${friends.length})` : ''}` },
-    { key: 'requests', label: `🔔 Lời mời${pendingReqs.length ? ` (${pendingReqs.length})` : ''}` },
-    { key: 'find', label: '🔍 Tìm bạn' },
+    { key: 'friends', label: `${t('friends.tabFriends')}${friends.length ? ` (${friends.length})` : ''}` },
+    { key: 'requests', label: `${t('friends.tabRequests')}${pendingReqs.length ? ` (${pendingReqs.length})` : ''}` },
+    { key: 'find', label: t('friends.tabFind') },
   ];
 
   return (
     <SafeAreaView style={[s.container, { backgroundColor: theme.colors.background }]}>
       {/* Header */}
       <View style={[s.header, { backgroundColor: theme.colors.card, borderBottomColor: theme.colors.border }]}>
-        <Text style={[s.headerTitle, { color: theme.colors.text }]}>Kết bạn</Text>
+        <Text style={[s.headerTitle, { color: theme.colors.text }]}>{t('friends.headerTitle')}</Text>
       </View>
 
-      {/* Tabs */}
+      {/* Tabs — dùng 'tab' thay vì 't' để tránh shadow hàm t() */}
       <View style={[s.tabBar, { backgroundColor: theme.colors.background, borderBottomColor: theme.colors.border }]}>
-        {TABS.map(t => (
+        {TABS.map(tabItem => (
           <TouchableOpacity
-            key={t.key}
-            style={[s.tabBtn, tab === t.key && { borderBottomColor: theme.colors.primary, borderBottomWidth: 2.5 }]}
-            onPress={() => setTab(t.key)}
+            key={tabItem.key}
+            style={[s.tabBtn, tab === tabItem.key && { borderBottomColor: theme.colors.primary, borderBottomWidth: 2.5 }]}
+            onPress={() => setTab(tabItem.key)}
           >
-            <Text style={[s.tabLabel, { color: tab === t.key ? theme.colors.primary : theme.colors.textSecondary },
-              tab === t.key && { fontWeight: '700' }]}>
-              {t.label}
+            <Text style={[s.tabLabel, { color: tab === tabItem.key ? theme.colors.primary : theme.colors.textSecondary },
+              tab === tabItem.key && { fontWeight: '700' }]}>
+              {tabItem.label}
             </Text>
           </TouchableOpacity>
         ))}
@@ -411,21 +403,21 @@ export default function FriendsScreen({ navigation }) {
           friends.length === 0 ? (
             <View style={s.empty}>
               <Text style={{ fontSize: 54 }}>👥</Text>
-              <Text style={[s.emptyTitle, { color: theme.colors.text }]}>Chưa có bạn bè</Text>
+              <Text style={[s.emptyTitle, { color: theme.colors.text }]}>{t('friends.emptyFriends')}</Text>
               <Text style={[s.emptySub, { color: theme.colors.textSecondary }]}>
-                Hãy tìm và kết bạn với mọi người
+                {t('friends.emptyFriendsSub')}
               </Text>
               <TouchableOpacity
                 style={[s.findBtn, { backgroundColor: theme.colors.primary }]}
                 onPress={() => setTab('find')}
               >
-                <Text style={s.findBtnText}>🔍 Tìm bạn ngay</Text>
+                <Text style={s.findBtnText}>{t('friends.findNow')}</Text>
               </TouchableOpacity>
             </View>
           ) : (
             friends.map(person => (
               <FriendCard
-                key={person.id}
+                key={person._id || person.id}
                 person={person}
                 onViewPhotos={(p) => setPhotosModal({ visible: true, person: p })}
                 onUnfriend={handleUnfriend}
@@ -441,7 +433,7 @@ export default function FriendsScreen({ navigation }) {
           pendingReqs.length === 0 ? (
             <View style={s.empty}>
               <Text style={{ fontSize: 54 }}>🔔</Text>
-              <Text style={[s.emptyTitle, { color: theme.colors.text }]}>Không có lời mời mới</Text>
+              <Text style={[s.emptyTitle, { color: theme.colors.text }]}>{t('friends.emptyRequests')}</Text>
             </View>
           ) : (
             pendingReqs.map(person => (
@@ -451,6 +443,7 @@ export default function FriendsScreen({ navigation }) {
                 onAccept={handleAccept}
                 onDecline={handleDecline}
                 theme={theme}
+                t={t}
               />
             ))
           )
@@ -463,7 +456,7 @@ export default function FriendsScreen({ navigation }) {
               <Text style={{ fontSize: 16, marginRight: 6 }}>🔍</Text>
               <TextInput
                 style={[s.searchInput, { color: theme.colors.text }]}
-                placeholder="Nhập tên hoặc email..."
+                placeholder={t('friends.searchPlaceholder')}
                 placeholderTextColor={theme.colors.placeholder}
                 value={searchQ}
                 onChangeText={setSearchQ}
@@ -480,13 +473,13 @@ export default function FriendsScreen({ navigation }) {
               <View style={s.empty}>
                 <Text style={{ fontSize: 48 }}>🤝</Text>
                 <Text style={[s.emptySub, { color: theme.colors.textSecondary }]}>
-                  Nhập ít nhất 2 ký tự để tìm kiếm
+                  {t('friends.searchMinChars')}
                 </Text>
               </View>
             ) : searchResults.length === 0 ? (
               <View style={s.empty}>
                 <Text style={{ fontSize: 40 }}>😕</Text>
-                <Text style={[s.emptySub, { color: theme.colors.textSecondary }]}>Không tìm thấy người dùng</Text>
+                <Text style={[s.emptySub, { color: theme.colors.textSecondary }]}>{t('friends.noSearchResults')}</Text>
               </View>
             ) : (
               searchResults.map(item => renderSearchUser({ item }))
@@ -503,6 +496,7 @@ export default function FriendsScreen({ navigation }) {
         onClose={() => setPhotosModal({ visible: false, person: null })}
         theme={theme}
         navigation={navigation}
+        t={t}
       />
     </SafeAreaView>
   );
