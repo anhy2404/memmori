@@ -115,11 +115,12 @@ export async function updateMemmori(memmoriId, updates) {
   if (!data.success) throw new Error(data.message);
 
   const cached = await getCachedMemmoris();
+  const normalized = normalizeId(data.memmori);
   await mmkvSet(
     CACHE_KEYS.MEMMORIS,
-    cached.map(m => _id(m) === memmoriId ? { ...m, ...data.memmori } : m)
+    cached.map(m => _id(m) === memmoriId ? { ...m, ...normalized } : m)
   );
-  return data.memmori;
+  return normalized;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────

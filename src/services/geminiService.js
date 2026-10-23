@@ -5,7 +5,7 @@ const _b = 'YW5oeQ==';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import * as FileSystem from 'expo-file-system';
 
-const GEMINI_API_KEY = 'YOUR_GEMINI_API_KEY';
+const GEMINI_API_KEY = 'AIzaSyBsjsvN1QmWy5KwxGvYLbIMAZJJ3uYQfTM';
 const DEFAULT_MODEL = 'gemini-1.5-flash';
 
 // Singleton client - khởi tạo một lần

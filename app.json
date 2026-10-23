@@ -10,7 +10,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.memmori.app",
       "config": {
-        "googleMapsApiKey": "YOUR_GOOGLE_MAPS_API_KEY"
+        "googleMapsApiKey": "AIzaSyDhGYcr2bw7OpQFgzxe3kAFG8G8MT391g8"
       },
       "infoPlist": {
         "NSCameraUsageDescription": "Cần camera để chụp ảnh kỷ niệm",
@@ -27,7 +27,7 @@
       "package": "com.memmori.app",
       "config": {
         "googleMaps": {
-          "apiKey": "YOUR_GOOGLE_MAPS_API_KEY"
+          "apiKey": "AIzaSyDhGYcr2bw7OpQFgzxe3kAFG8G8MT391g8"
         }
       },
       "permissions": [
@@ -46,7 +46,7 @@
     },
     "extra": {
       "_comment": "Sua backendHost = IP may tinh khi Expo Go khong tu detect duoc. Sau khi sua, nhan R de reload.",
-      "backendHost": "192.168.1.14"
+      "backendHost": "192.168.1.4"
     },
     "plugins": [
       [
